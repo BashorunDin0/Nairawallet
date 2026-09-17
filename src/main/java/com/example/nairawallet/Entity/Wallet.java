@@ -19,7 +19,7 @@ import java.util.List;
 @Table(name = "wallets")
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class Wallet {

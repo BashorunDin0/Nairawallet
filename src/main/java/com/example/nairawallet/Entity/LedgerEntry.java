@@ -8,10 +8,7 @@ package com.example.nairawallet.Entity;
 
 import com.example.nairawallet.Enum.LedgerEntryType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -25,7 +22,7 @@ import java.time.LocalDateTime;
 )
 
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class LedgerEntry {

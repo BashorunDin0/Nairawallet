@@ -17,7 +17,7 @@ import java.time.OffsetDateTime;
 @Table(name = "idempotency_keys")
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class IdempotencyKey {

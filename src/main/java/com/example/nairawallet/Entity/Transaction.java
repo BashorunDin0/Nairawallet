@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 @Table(name = "wallet_transactions")
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class Transaction {
