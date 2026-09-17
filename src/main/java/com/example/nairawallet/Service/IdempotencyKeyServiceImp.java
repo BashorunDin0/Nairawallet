@@ -13,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+import java.time.Duration;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +33,7 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
         }
 
         String normalizedKey = key.trim();
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
 
         boolean exists = repository
@@ -51,12 +51,12 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
     public void save(String key) {
         log.debug("Saving idempotency key: {}", key);
         String normalizedKey = key.trim();
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         IdempotencyKey idempotencyKey = IdempotencyKey.builder()
                 .idempotencyKey(normalizedKey)
                 .createdAt(now)
-                .expireAt(now.plusHours(EXPIRY_HOUR))
+                .expireAt(now.plus(Duration.ofHours(EXPIRY_HOUR)))
                 .build();
         repository.save(idempotencyKey);
     }

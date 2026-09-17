@@ -9,6 +9,7 @@ package com.example.nairawallet.Repository;
 import com.example.nairawallet.Entity.IdempotencyKey;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -16,7 +17,7 @@ public interface IdempotencyKeyRepository extends JpaRepository<IdempotencyKey, 
 
     Optional<IdempotencyKey> findByIdempotencyKey(String key);
 
-    boolean existsByIdempotencyKeyAndExpireAtAfter(String key, LocalDateTime now);
+    boolean existsByIdempotencyKeyAndExpireAtAfter(String key, Instant now);
 
     void deleteByExpireAtBefore(LocalDateTime dateTime);
 

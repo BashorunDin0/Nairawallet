@@ -12,7 +12,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "users")
@@ -37,9 +37,9 @@ public class User {
     @Column(nullable = false, unique = true, length = 20)
     private String phoneNumber;
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Wallet wallet;

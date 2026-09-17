@@ -3,7 +3,7 @@ package com.example.nairawallet.Dto.Response;
 import com.example.nairawallet.Enum.LedgerEntryType;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /*
  * Copyright (c) 2026. [Yusuff I. Olawale/BashorunDIn0].
@@ -16,6 +16,6 @@ public record LedgerEntryResponse(
         BigDecimal balanceBefore,
         BigDecimal balanceAfter,
         String narration,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {
 }

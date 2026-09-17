@@ -10,8 +10,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "idempotency_keys")
@@ -27,7 +27,7 @@ public class IdempotencyKey {
     @Column(name = "idempotency_key", nullable = false, unique = true)
     private String idempotencyKey;
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     @Column(nullable = false)
-    private LocalDateTime expireAt;
+    private Instant expireAt;
 }

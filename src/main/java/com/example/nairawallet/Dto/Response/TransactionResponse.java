@@ -4,6 +4,7 @@ import com.example.nairawallet.Enum.TransactionStatus;
 import com.example.nairawallet.Enum.TransactionType;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /*
@@ -18,6 +19,6 @@ public record TransactionResponse(
          TransactionStatus status,
          TransactionType type,
          String narration,
-         LocalDateTime createdAt
+         Instant createdAt
 ) {
 }

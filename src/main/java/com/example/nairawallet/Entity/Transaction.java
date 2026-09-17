@@ -13,7 +13,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
 @Table(name = "wallet_transactions")
@@ -39,7 +39,7 @@ public class Transaction {
     @Column(length = 255)
     private String narration;
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)

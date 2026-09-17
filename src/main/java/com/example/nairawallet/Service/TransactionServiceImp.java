@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.IllegalTransactionStateException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -197,7 +198,7 @@ public class TransactionServiceImp implements TransactionService {
                 .status(TransactionStatus.PENDING)
                 .amount(amount)
                 .narration(narration)
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
         return transactionRepository.save(transaction);
     }
