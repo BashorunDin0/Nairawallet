@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: nairawallet
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/nairawallet2
+    username: postgres
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
