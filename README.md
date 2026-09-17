@@ -214,7 +214,13 @@ ledger_entries
 idempotency_keys
 ```
 
-Flyway is used to manage database schema migrations.
+### Database Schema
+
+The project is intended to use **Flyway** for database schema migrations as the project moves toward a more production-ready setup.
+
+For the current development stage, however, Hibernate's `ddl-auto` is temporarily set to `update`, allowing Hibernate to create and update the required database tables automatically.
+
+Flyway migrations will be used as the project progresses toward a more controlled and production-ready database migration strategy.
 
 ---
 
