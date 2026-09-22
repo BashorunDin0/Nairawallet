@@ -19,6 +19,6 @@ public interface IdempotencyKeyRepository extends JpaRepository<IdempotencyKey, 
 
     boolean existsByIdempotencyKeyAndExpireAtAfter(String key, Instant now);
 
-    void deleteByExpireAtBefore(LocalDateTime dateTime);
+    void deleteByExpireAtBefore(Instant dateTime);
 
 }
