@@ -51,12 +51,8 @@ public class TransactionServiceImpTest {
                 walletId, new BigDecimal("500.00")
         );
 
-        var wallet = Wallet.builder()
-                .id(walletId)
-                .balance(new BigDecimal("1000.00"))
-                .status(WalletStatus.ACTIVE)
-                .currency(Currency.NGN)
-                .build();
+        var wallet = Wallet.createFor(null);
+                wallet.credit(new BigDecimal("1000.00"));
 
         var savedTransaction = Transaction.builder()
                 .wallet(wallet)

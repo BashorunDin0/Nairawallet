@@ -34,7 +34,7 @@ public class UserServiceImp implements UserService{
 
         String email = request.email().trim().toLowerCase();
 
-        if (userRepository.existsByEmail(request.email())){
+        if (userRepository.existsByEmail(email)){
             throw new UserAlreadyExistsException("User with email already exists");
         }
 
@@ -44,18 +44,13 @@ public class UserServiceImp implements UserService{
 
         User user = User.builder()
                 .fullName(request.fullName())
-                .email(request.email())
+                .email(email)
                 .phoneNumber(request.phoneNumber())
                 .build();
 
-        Wallet wallet = Wallet.builder()
-                .user(user)
-                .balance(BigDecimal.ZERO)
-                .currency(Currency.NGN)
-                .status(WalletStatus.ACTIVE)
-                .build();
-
+        Wallet wallet = Wallet.createFor(user);
         user.setWallet(wallet);
+
         User savedUser = userRepository.save(user);
 
         return userMapper.mapToResponse(savedUser);

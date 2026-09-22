@@ -56,9 +56,11 @@ public class TransactionServiceImp implements TransactionService {
         idempotencyKeyService.validate(idempotencyKey);
         Wallet wallet = walletService.findById(request.walletId());
         validateWallet(wallet);
+
         BigDecimal balanceBefore = wallet.getBalance();
-        BigDecimal balanceAfter = balanceBefore.add(request.amount());
-        wallet.setBalance(balanceAfter);
+        wallet.credit(request.amount());
+        BigDecimal balanceAfter = wallet.getBalance();
+
         Transaction transaction = createTransaction(
                 wallet,
                 TransactionType.DEPOSIT,
@@ -90,11 +92,10 @@ public class TransactionServiceImp implements TransactionService {
         idempotencyKeyService.validate(idempotencyKey);
         Wallet wallet = walletService.findById(request.walletId());
         validateWallet(wallet);
-        validateSufficientBalance(wallet, request.amount());
 
         BigDecimal balanceBefore = wallet.getBalance();
-        BigDecimal balanceAfter = balanceBefore.subtract(request.amount());
-        wallet.setBalance(balanceAfter);
+        wallet.debit(request.amount());
+        BigDecimal balanceAfter = wallet.getBalance();
 
         Transaction transaction = createTransaction(
                 wallet,
@@ -129,8 +130,6 @@ public class TransactionServiceImp implements TransactionService {
 
         validateWallet(senderWallet);
         validateWallet(receiverWallet);
-        validateSufficientBalance(senderWallet, request.amount());
-
 
         BigDecimal senderBalanceBefore = senderWallet.getBalance();
         BigDecimal senderBalanceAfter = senderBalanceBefore.subtract(request.amount());
@@ -138,8 +137,8 @@ public class TransactionServiceImp implements TransactionService {
         BigDecimal receiverBalanceBefore = receiverWallet.getBalance();
         BigDecimal receiverBalanceAfter = receiverBalanceBefore.add(request.amount());
 
-        senderWallet.setBalance(senderBalanceAfter);
-        receiverWallet.setBalance(receiverBalanceAfter);
+        senderWallet.debit(request.amount());
+        receiverWallet.credit(request.amount());
 
         Transaction transaction = createTransaction(
                 senderWallet,
@@ -215,12 +214,6 @@ public class TransactionServiceImp implements TransactionService {
         transaction.setStatus(TransactionStatus.SUCCESS);
         transactionRepository.save(transaction);
 
-    }
-
-    private void validateSufficientBalance(Wallet wallet, BigDecimal amount){
-        if (wallet.getBalance().compareTo(amount) < 0){
-            throw new InsufficientFundsException("Insufficient funds");
-        }
     }
 
     private void validateSelfTransfer(TransferRequest request){

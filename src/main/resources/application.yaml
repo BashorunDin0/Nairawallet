@@ -3,12 +3,13 @@ spring:
     name: nairawallet
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/nairawallet2
+    url: jdbc:postgresql://localhost:5432/nairawallet
     username: postgres
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: true
