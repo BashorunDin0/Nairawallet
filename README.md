@@ -1,370 +1,507 @@
-# NairaWallet 💳
+# NairaWallet
 
-NairaWallet is a **production-style Nigerian fintech e-wallet backend** built with Java and Spring Boot.
+A production-oriented digital wallet backend built with **Java and Spring Boot**, designed to demonstrate how core wallet and payment operations can be implemented with a strong focus on **transaction integrity, concurrency control, idempotency, auditability, and testability**.
 
-The project is currently **unfinished and actively under development**. However, the core implemented endpoints are functional and have been tested locally using Postman.
+NairaWallet simulates the backend of a Nigerian digital wallet where users can create wallets, deposit funds, withdraw funds, and transfer money between wallets.
 
-I am publishing the current state of the project to GitHub primarily to **preserve the codebase while transitioning to a new development laptop**, and I will continue development from this repository once the new environment is ready.
+The project is being developed incrementally with a focus on applying backend engineering and fintech concepts that are relevant to real-world financial systems.
 
 ---
 
-## 🚧 Project Status
+## 🚀 Project Overview
 
-**Status: Work in Progress**
+NairaWallet provides backend APIs for managing users, wallets, and financial transactions.
 
-The current implementation is not the final version of NairaWallet. Some production-level features, improvements, and refinements are still pending.
+The primary goal of the project is not simply to implement CRUD operations, but to explore the engineering challenges that arise when building systems that handle money.
 
-That said, the currently implemented functionality is working, including:
+The project currently focuses on:
 
-* User registration
-* Automatic wallet creation
-* Wallet retrieval
-* Deposits
-* Withdrawals
+* Wallet lifecycle management
+* Deposits and withdrawals
 * Wallet-to-wallet transfers
-* Transaction records
-* Double-entry ledger entries
-* Idempotency protection
-* Optimistic locking
-* Request validation
-* Global exception handling
-* Database migrations with Flyway
-
-The API endpoints currently implemented have been tested successfully during development.
-
----
-
-## 🎯 Project Goal
-
-The goal of NairaWallet is to build a realistic backend for a Nigerian digital wallet while applying concepts commonly used in fintech systems, including:
-
-* Transaction management
+* Transaction state management
 * Idempotency
-* Concurrency control
 * Optimistic locking
-* Double-entry accounting
-* Transaction ledgers
-* Database consistency
-* API validation
-* Exception handling
-* Database migrations
-* Redis
-* PostgreSQL
-* Event-driven architecture
-* Observability and scalability
-
-The project is also being used as a practical learning project for understanding how **Java/Spring Boot backend systems can be designed for fintech use cases**.
+* Transactional consistency
+* Double-entry-style ledger records
+* Validation and exception handling
+* Unit and integration testing
+* PostgreSQL persistence
+* Production-oriented domain design
 
 ---
 
 ## 🛠️ Technology Stack
 
-* **Java 17**
-* **Spring Boot**
-* **Spring Data JPA / Hibernate**
-* **Spring Validation**
-* **PostgreSQL**
-* **Redis**
-* **Flyway**
-* **Maven**
-* **REST APIs**
-* **Postman**
-* **Git / GitHub**
+| Technology                      | Purpose                         |
+| ------------------------------- | ------------------------------- |
+| **Java 17**                     | Backend programming language    |
+| **Spring Boot**                 | Application framework           |
+| **Spring Data JPA / Hibernate** | Persistence and ORM             |
+| **PostgreSQL**                  | Relational database             |
+| **Maven**                       | Build and dependency management |
+| **JUnit 5**                     | Testing                         |
+| **Mockito**                     | Unit testing and mocking        |
+| **Lombok**                      | Boilerplate reduction           |
+| **Git / GitHub**                | Version control                 |
+| **Postman**                     | API testing                     |
 
 ---
 
-## 🏗️ Current Architecture
+## 🏗️ Architecture
 
-The current project follows a layered Spring Boot architecture:
+The application follows a layered backend architecture:
 
 ```text
+Client
+  │
+  ▼
 Controller
-    ↓
+  │
+  ▼
 Service
-    ↓
+  │
+  ├── Wallet Domain
+  ├── Transaction Domain
+  ├── Ledger
+  └── Idempotency
+  │
+  ▼
 Repository
-    ↓
+  │
+  ▼
 PostgreSQL
 ```
 
-The transaction flow also incorporates:
-
-```text
-Client Request
-      ↓
-Controller
-      ↓
-Validation
-      ↓
-Transaction Service
-      ↓
-Idempotency Check
-      ↓
-Wallet Validation
-      ↓
-Database Transaction
-      ↓
-Wallet Update
-      ↓
-Transaction Record
-      ↓
-Ledger Entries
-      ↓
-Response
-```
+The project separates responsibilities between controllers, services, repositories, and domain entities while keeping important wallet state transitions inside the domain model.
 
 ---
 
-## 💰 Wallet Operations
+## 💰 Core Features
+
+### User Management
+
+Users can be created with:
+
+* Full name
+* Email
+* Phone number
+* User role
+* Automatically created wallet
+
+Each user has a one-to-one relationship with a wallet.
+
+---
+
+### Wallet Management
+
+Wallets currently support:
+
+* NGN currency
+* Active/inactive status
+* Balance management
+* Wallet creation
+* Credit operations
+* Debit operations
+* Insufficient-funds protection
+* Inactive-wallet protection
+
+Wallet state changes are controlled through domain methods rather than exposing unrestricted setters.
+
+For example:
+
+```java
+wallet.credit(amount);
+wallet.debit(amount);
+wallet.deactivate();
+```
+
+This keeps important business rules close to the object that owns the state.
+
+---
+
+## 💸 Transactions
+
+NairaWallet currently supports:
 
 ### Deposit
 
-A deposit increases the wallet balance and creates the corresponding transaction and ledger records.
-
-Idempotency protection is used to prevent the same request from being processed multiple times.
+```text
+Client
+  ↓
+Deposit Request
+  ↓
+Validate Idempotency Key
+  ↓
+Load Wallet
+  ↓
+Validate Wallet State
+  ↓
+Credit Wallet
+  ↓
+Create Transaction
+  ↓
+Create Ledger Entry
+  ↓
+Mark Transaction Successful
+  ↓
+Save Idempotency Key
+  ↓
+Response
+```
 
 ### Withdrawal
 
-A withdrawal validates the wallet and available balance before debiting the wallet.
+Withdrawals validate the wallet state and available balance before modifying the wallet.
 
-Optimistic locking is used to help prevent concurrent requests from incorrectly modifying the same wallet balance.
+The operation records:
 
-### Transfer
+* Transaction reference
+* Transaction type
+* Amount
+* Previous balance
+* New balance
+* Transaction status
+* Ledger information
 
-Wallet-to-wallet transfers debit the sender and credit the recipient within a database transaction.
+### Wallet Transfer
 
-The transfer also creates corresponding ledger entries to maintain an auditable record of the movement of funds.
+Transfers move funds atomically between two wallets.
 
----
+The current flow is:
 
-## 🔐 Fintech Concepts Implemented
-
-### Idempotency
-
-The API supports idempotency keys for transaction requests.
-
-This helps protect against duplicate transactions when a client retries a request because of network failures or timeouts.
-
-Example:
-
-```http
-Idempotency-Key: unique-request-key
+```text
+Sender Wallet
+      │
+      ▼
+   Debit
+      │
+      ▼
+Receiver Wallet
+      │
+      ▼
+   Credit
+      │
+      ▼
+Create Transaction + Ledger Entries
 ```
 
+The transfer operation is wrapped in a Spring transaction so that a failure during the operation causes the database transaction to roll back.
+
 ---
 
-### Optimistic Locking
+## 🔐 Idempotency
 
-Wallets use JPA's optimistic locking mechanism:
+Financial APIs must protect against duplicate requests.
+
+NairaWallet uses an idempotency key to prevent the same transaction request from being processed repeatedly.
+
+For example:
+
+```http
+Idempotency-Key: transfer-12345
+```
+
+The service validates the key before processing the transaction and stores it after a successful operation.
+
+This helps protect against scenarios such as:
+
+```text
+Client sends transfer
+        ↓
+Network timeout
+        ↓
+Client retries request
+        ↓
+Same Idempotency-Key
+        ↓
+Duplicate transaction prevented
+```
+
+The project is designed around the principle that **retrying a financial request should not accidentally create another financial effect**.
+
+---
+
+## 🔄 Transaction Management & Rollback
+
+Financial operations use Spring's `@Transactional` support to maintain database consistency.
+
+For example, if a transfer debits the sender but the receiver cannot accept the funds:
+
+```text
+Sender debit
+     ↓
+Receiver credit
+     ↓
+Receiver is INACTIVE
+     ↓
+Exception
+     ↓
+Transaction rollback
+     ↓
+Sender balance restored
+```
+
+This behavior is covered by a real Spring integration test against PostgreSQL.
+
+This is important because unit tests with Mockito alone cannot prove that Spring actually rolls back a database transaction.
+
+---
+
+## 🔒 Optimistic Locking
+
+Wallets use JPA's `@Version` field to support optimistic locking:
 
 ```java
 @Version
 private Long version;
 ```
 
-This helps protect wallet balances from lost updates when multiple requests attempt to modify the same wallet concurrently.
+This helps protect wallet balances from concurrent updates.
 
----
-
-### Double-Entry Ledger
-
-Financial movements are recorded using ledger entries rather than relying only on the wallet balance.
-
-For example:
+Conceptually:
 
 ```text
-Transfer ₦10,000
-
-Sender Wallet
-    DEBIT  ₦10,000
-
-Recipient Wallet
-    CREDIT ₦10,000
+Request A ──┐
+            ├── Wallet balance
+Request B ──┘
 ```
 
-This provides an auditable representation of financial movements.
+Both requests may read the same wallet version, but only a valid version update can be committed.
+
+The project also includes retry handling for optimistic locking failures.
 
 ---
 
-### Database Transactions
+## 📒 Ledger & Audit Trail
 
-Financial operations use Spring's transaction management to ensure that related database operations succeed or fail together.
+Financial transactions should be auditable rather than relying only on the current wallet balance.
 
-For example:
+NairaWallet therefore records ledger entries alongside wallet transactions.
 
-```java
-@Transactional
-```
-
-A transfer should not result in the sender being debited while the recipient is not credited.
-
----
-
-## 🗄️ Database
-
-The project currently uses **PostgreSQL**.
-
-Main entities include:
+A transaction records information such as:
 
 ```text
-users
-wallets
-wallet_transactions
-ledger_entries
-idempotency_keys
+Transaction
+├── Reference
+├── Type
+├── Amount
+├── Status
+└── Wallet
 ```
 
-### Database Schema
+Ledger records capture:
 
-The project is intended to use **Flyway** for database schema migrations as the project moves toward a more production-ready setup.
-
-For the current development stage, however, Hibernate's `ddl-auto` is temporarily set to `update`, allowing Hibernate to create and update the required database tables automatically.
-
-Flyway migrations will be used as the project progresses toward a more controlled and production-ready database migration strategy.
-
----
-
-## 🐳 Running the Project
-
-### Requirements
-
-You will need:
-
-* Java 17+
-* Maven
-* PostgreSQL
-* Redis
-
----
-
-## 🔗 API Endpoints
-
-The currently implemented API includes endpoints for:
-
-### Users
-
-```http
-POST /api/v1/users
+```text
+Ledger Entry
+├── Wallet
+├── Transaction
+├── Amount
+├── Balance Before
+├── Balance After
+├── CREDIT / DEBIT
+└── Description
 ```
 
-Creates a user and automatically creates the associated wallet.
-
-### Wallet
-
-```http
-GET /api/v1/wallets/{walletId}
-```
-
-Retrieves wallet information.
-
-### Deposit
-
-```http
-POST /api/v1/transactions/deposit
-```
-
-Deposits funds into a wallet.
-
-### Withdrawal
-
-```http
-POST /api/v1/transactions/withdraw
-```
-
-Withdraws funds from a wallet.
-
-### Transfer
-
-```http
-POST /api/v1/transactions/transfer
-```
-
-Transfers funds between wallets.
-
-> Endpoint names and request/response structures may change as the project continues to evolve.
+This provides a historical trail that can be used to understand how a wallet balance changed over time.
 
 ---
 
 ## 🧪 Testing
 
-The implemented endpoints have been tested locally using **Postman**.
+Testing is an important part of the current development process.
 
-Testing currently covers areas such as:
+The project currently contains:
 
-* Successful requests
-* Validation failures
-* Duplicate requests
-* Insufficient wallet balance
-* Invalid wallets
-* Invalid transfers
-* Concurrent wallet updates
-* Transaction creation
-* Ledger creation
+### Unit Tests
+
+Mockito-based tests cover transaction service behavior including:
+
+* Successful deposits
+* Successful withdrawals
+* Successful transfers
+* Insufficient funds
+* Inactive sender wallet
+* Inactive receiver wallet
+* Self-transfer rejection
+* Transaction validation
+
+### Integration Testing
+
+A Spring Boot integration test uses the real PostgreSQL database to verify transactional rollback behavior.
+
+The current test suite:
+
+```text
+Tests run: 11
+Failures: 0
+Errors: 0
+Skipped: 0
+
+BUILD SUCCESS
+```
+
+This includes both service-level unit tests and Spring integration/context testing.
+
+---
+
+## 🗄️ Database
+
+PostgreSQL is used as the primary relational database.
+
+Current domain tables include:
+
+```text
+users
+   │
+   └── wallets
+          │
+          ├── wallet_transactions
+          │
+          └── ledger_entries
+
+idempotency_keys
+```
+
+The database design uses constraints and relationships to help protect data integrity.
+
+Examples include:
+
+* Unique user email
+* Unique user phone number
+* Unique wallet per user
+* Unique transaction references
+* Wallet status constraints
+* Optimistic locking version column
+
+---
+
+## 📡 API Endpoints
+
+The application currently exposes REST APIs for core wallet operations.
+
+Examples:
+
+```http
+POST /api/v1/users
+```
+
+Create a user and wallet.
+
+```http
+POST /api/v1/wallets/{walletId}/deposit
+```
+
+Deposit funds.
+
+```http
+POST /api/v1/wallets/{walletId}/withdraw
+```
+
+Withdraw funds.
+
+Transfer operations use the sender and receiver wallet IDs and require an idempotency key.
+
+Transaction history can also be retrieved with pagination support.
+
+---
+
+## 🧠 Engineering Concepts Demonstrated
+
+NairaWallet is being used to demonstrate practical understanding of backend and fintech engineering concepts including:
+
+* Java 17
+* Spring Boot
+* Spring Data JPA
+* Hibernate
+* PostgreSQL
+* REST API design
+* Layered architecture
+* Domain-driven state changes
+* Database transactions
+* `@Transactional`
+* Optimistic locking
+* Transaction rollback
+* Idempotency
+* Financial transaction references
+* Ledger-based auditing
 * Exception handling
-
-Automated unit and integration testing is still being expanded.
-
----
-
-## 🚧 Planned Improvements
-
-The project is intentionally incomplete. Future development will include improvements such as:
-
-* More comprehensive unit and integration tests
-* Mockito-based service testing
-* Redis integration
-* Kafka/event-driven processing
-* Outbox pattern
-* Payment provider integration
-* Webhook processing
-* Transaction reconciliation
-* Rate limiting
-* Circuit breakers
-* Improved observability
-* Metrics and monitoring
-* Authentication and authorization improvements
-* API documentation
-* More robust audit capabilities
-* Production deployment configuration
-* Additional fintech business rules
-* Docker and containerized development environment
+* Pagination
+* Unit testing
+* Integration testing
+* Mockito
+* Git/GitHub
 
 ---
 
-## ⚠️ Important Disclaimer
+## 📈 Current Development Status
 
-NairaWallet is a **learning and portfolio project** and should not currently be considered production-ready financial software.
+The core wallet functionality is implemented and tested.
 
-Although the implemented endpoints are functional, the project is still under development and has not undergone the level of security, compliance, performance, reliability, and operational testing required for a real financial institution.
+### Completed
 
-The project is intended to demonstrate backend engineering concepts and serve as an evolving implementation of a fintech wallet system.
-
----
-
-## 📌 Current Development Stage
-
-This repository represents the **current development state of NairaWallet as of September 2026**.
-
-Development will continue from this repository, with additional features and production-grade improvements being added over time.
-
-**This is not the finished product — it is the foundation I'm building on.**
-
----
-
-## 👨🏽‍💻 Author
-
-**Yusuff Ibrahim Olawale**
-
-Java Backend Developer | Spring Boot | Fintech Backend Engineering
-
-GitHub: `BashorunDin0`
+* [x] User creation
+* [x] Automatic wallet creation
+* [x] Wallet balance management
+* [x] Wallet activation/inactivation
+* [x] Deposit
+* [x] Withdrawal
+* [x] Wallet transfer
+* [x] Insufficient-funds validation
+* [x] Self-transfer validation
+* [x] Idempotency validation
+* [x] Transaction records
+* [x] Ledger entries
+* [x] Optimistic locking
+* [x] Global exception handling
+* [x] Pagination for transaction history
+* [x] Mockito unit tests
+* [x] Spring integration testing
+* [x] Transaction rollback testing
 
 ---
 
-## ⭐ Why This Repository Exists
+## 🔭 Roadmap
 
-This repository is being maintained as both a **portfolio project and development backup**.
+The project will continue to evolve toward a more production-oriented fintech backend.
 
-The current codebase is being pushed to GitHub so development can be safely recovered and continued when moving to a new development machine.
+Planned improvements include:
 
-More features and improvements will be added as development continues.
+* [ ] Improve automated test coverage
+* [ ] Repository/database integration tests
+* [ ] Database migration management with Flyway
+* [ ] Request validation improvements
+* [ ] Authentication and authorization
+* [ ] Redis-based capabilities
+* [ ] Payment provider abstraction
+* [ ] Payment gateway integration
+* [ ] Webhook processing
+* [ ] Reconciliation workflows
+* [ ] Asynchronous transaction processing
+* [ ] Rate limiting
+* [ ] Circuit breaker patterns
+* [ ] Structured observability and monitoring
+* [ ] Dockerized deployment
+* [ ] Production deployment
+
+---
+
+## 🎯 Why I Built NairaWallet
+
+NairaWallet started as a way to strengthen my Java and Spring Boot backend skills through a realistic fintech project.
+
+As the project evolved, the focus moved beyond simply making APIs work toward understanding the problems that matter when software handles money:
+
+**What happens if a request is sent twice?**
+
+**What happens if two requests modify the same wallet simultaneously?**
+
+**What happens if one side of a transfer fails?**
+
+**How can a transaction be audited later?**
+
+**How do we prove that database rollback actually works?**
+
+These questions have shaped the current architecture and development of NairaWallet.
+
+The project is an ongoing demonstration of my approach to building **reliable, maintainable Java backend systems for financial applications**.
