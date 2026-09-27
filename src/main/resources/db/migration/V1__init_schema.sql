@@ -3,11 +3,12 @@ SET search_path TO public;
 -- 1. Create Users Table
 CREATE TABLE users (
 id BIGSERIAL primary key,
-full_name varchar(255) NOT NULL,
-email VARCHAR(255) NOT NULL UNIQUE,
+full_name varchar(100) NOT NULL,
+email VARCHAR(150) NOT NULL UNIQUE,
 user_role VARCHAR(255) NOT NULL,
-phone_number VARCHAR(255) UNIQUE,
-created_at TIMESTAMP WITH TIME ZONE NOT NULL
+phone_number VARCHAR(20) UNIQUE,
+created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+updated_at TIMESTAMP WITH TIME ZONE
 );
 CREATE INDEX idx_user_email ON users(email);
 
@@ -15,9 +16,9 @@ CREATE INDEX idx_user_email ON users(email);
 CREATE TABLE wallets (
 id BIGSERIAL PRIMARY KEY,
 balance NUMERIC(19, 2) NOT NULL,
-status VARCHAR(50),
+status VARCHAR(50) NOT NULL,
 version BIGINT NOT NULL,
-currency varchar(3),
+currency varchar(3) NOT NULL,
 user_id BIGINT NOT NULL UNIQUE,
 CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -27,9 +28,9 @@ CREATE TABLE wallet_transactions(
 id BIGSERIAL PRIMARY KEY,
 wallet_id BIGINT NOT NULL,
 tx_reference VARCHAR(255) NOT NULL UNIQUE,
-transaction_type VARCHAR(50),
+transaction_type VARCHAR(50) NOT NULL ,
 amount NUMERIC(19,2) NOT NULL,
-status VARCHAR(255),
+status VARCHAR(255) NOT NULL ,
 narration VARCHAR(255) NOT NULL,
 created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 CONSTRAINT fk_wallet_transaction_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
@@ -46,7 +47,7 @@ transaction_id BIGINT NOT NULL,
 amount NUMERIC(19,2) NOT NULL,
 balance_before NUMERIC(19,2) NOT NULL,
 balance_after NUMERIC(19, 2) NOT NULL,
-entry_type VARCHAR(50),
+entry_type VARCHAR(50) NOT NULL ,
 narration VARCHAR(255),
 created_at TIMESTAMP WITH TIME ZONE NOT NULL,
 CONSTRAINT fk_ledger_entries_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id),

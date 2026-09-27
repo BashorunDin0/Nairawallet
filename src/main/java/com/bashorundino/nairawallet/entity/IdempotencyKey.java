@@ -1,0 +1,34 @@
+package com.bashorundino.nairawallet.entity;
+
+/*
+ * Copyright (c) 2026. [Yusuff I. Olawale/BashorunDIn0].
+ * All rights reserved.
+ * This project was developed as part of a Fintech MVP series.
+ */
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.Instant;
+
+@Entity
+@Table(name = "idempotency_keys")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
+public class IdempotencyKey {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "idempotency_key", nullable = false, unique = true)
+    private String idempotencyKey;
+
+    @CreationTimestamp
+    private Instant createdAt;
+
+    @Column(nullable = false)
+    private Instant expireAt;
+}

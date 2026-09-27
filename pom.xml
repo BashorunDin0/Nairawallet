@@ -18,9 +18,9 @@
 
 	</parent>
 
-	<groupId>com.example</groupId>
+	<groupId>com.bashorundino</groupId>
 
-	<artifactId>demo</artifactId>
+	<artifactId>nairawallet</artifactId>
 
 	<version>0.0.1-SNAPSHOT</version>
 
@@ -155,16 +155,6 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 
 			<scope>test</scope>
-
-		</dependency>
-
-		<dependency>
-
-			<groupId>com.example</groupId>
-
-			<artifactId>demo</artifactId>
-
-			<version>0.0.1-SNAPSHOT</version>
 
 		</dependency>
 
