@@ -1,5 +1,6 @@
 package com.bashorundino.nairawallet.dto.response;
 
+import com.bashorundino.nairawallet.enums.TransactionDirection;
 import com.bashorundino.nairawallet.enums.TransactionStatus;
 import com.bashorundino.nairawallet.enums.TransactionType;
 
@@ -18,6 +19,7 @@ public record TransactionResponse(
          TransactionStatus status,
          TransactionType type,
          String narration,
-         Instant createdAt
+         Instant createdAt,
+         TransactionDirection direction
 ) {
 }

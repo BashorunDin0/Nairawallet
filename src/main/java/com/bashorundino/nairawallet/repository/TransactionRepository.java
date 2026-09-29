@@ -15,9 +15,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
-    Optional<Transaction> findByTxReference(String reference);
 
-    Page<Transaction> findByWalletIdOrderByCreatedAtDesc(
-            Long walletId,
-            Pageable pageable);
+    Optional<Transaction> findByTxReference(
+            String reference);
+
+    Page<Transaction> findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+            Long sourceWalletId,
+            Long destinationWalletId,
+            Pageable pageable
+    );
 }

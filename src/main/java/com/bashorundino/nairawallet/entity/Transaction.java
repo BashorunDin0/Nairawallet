@@ -56,8 +56,12 @@ public class Transaction {
     private Instant createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "wallet_id", nullable = false)
-    private Wallet wallet;
+    @JoinColumn(name = "source_wallet_id")
+    private Wallet sourceWallet;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "destination_wallet_id")
+    private Wallet destinationWallet;
 
     public void markSuccessful(){
 

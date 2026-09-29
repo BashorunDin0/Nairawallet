@@ -56,6 +56,7 @@ public class TransactionServiceImp implements TransactionService {
         BigDecimal balanceAfter = wallet.getBalance();
 
         Transaction transaction = createTransaction(
+                null,
                 wallet,
                 TransactionType.DEPOSIT,
                 request.amount(),
@@ -77,7 +78,7 @@ public class TransactionServiceImp implements TransactionService {
         idempotencyKeyService.save(idempotencyKey);
         log.info("Deposit successful. reference = {}", transaction.getTxReference());
 
-        return transactionMapper.mapToResponse(transaction);
+        return transactionMapper.mapToResponse(transaction, wallet.getId());
 
 
     }
@@ -92,6 +93,7 @@ public class TransactionServiceImp implements TransactionService {
 
         Transaction transaction = createTransaction(
                 wallet,
+                null,
                 TransactionType.WITHDRAWAL,
                 request.amount(),
                 "Wallet Withdrawal"
@@ -110,7 +112,7 @@ public class TransactionServiceImp implements TransactionService {
         idempotencyKeyService.save(idempotencyKey);
         log.info("Withdrawal successful. reference = {}", transaction.getTxReference());
 
-        return transactionMapper.mapToResponse(transaction);
+        return transactionMapper.mapToResponse(transaction, wallet.getId());
     }
 
     @Transactional
@@ -134,6 +136,7 @@ public class TransactionServiceImp implements TransactionService {
 
         Transaction transaction = createTransaction(
                 senderWallet,
+                receiverWallet,
                 TransactionType.TRANSFER,
                 request.amount(),
                 "Wallet-Transfer"
@@ -162,7 +165,7 @@ public class TransactionServiceImp implements TransactionService {
         log.info("Transfer successful. reference: {}", transaction.getTxReference());
 
 
-        return transactionMapper.mapToResponse(transaction);
+        return transactionMapper.mapToResponse(transaction, senderWallet.getId());
     }
 @Transactional
     public Page<TransactionResponse> getTransactions(Long walletId, int page, int size) {
@@ -170,14 +173,24 @@ public class TransactionServiceImp implements TransactionService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        Page<Transaction> transactions = transactionRepository.findByWalletIdOrderByCreatedAtDesc(walletId, pageable);
+        Page<Transaction> transactions = transactionRepository.
+                findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        walletId,
+                        walletId,
+                        pageable);
 
-        return transactions.map(transactionMapper::mapToResponse);
+        return transactions.map(transaction ->
+                transactionMapper.mapToResponse(transaction, walletId));
     }
 
-    private Transaction createTransaction(Wallet wallet, TransactionType type, BigDecimal amount, String narration) {
+    private Transaction createTransaction(Wallet sourceWallet,
+                                          Wallet destinationWallet,
+                                          TransactionType type,
+                                          BigDecimal amount,
+                                          String narration) {
         Transaction transaction = Transaction.builder()
-                .wallet(wallet)
+                .sourceWallet(sourceWallet)
+                .destinationWallet(destinationWallet)
                 .txReference(referenceGenerator())
                 .transactionType(type)
                 .status(TransactionStatus.PENDING)

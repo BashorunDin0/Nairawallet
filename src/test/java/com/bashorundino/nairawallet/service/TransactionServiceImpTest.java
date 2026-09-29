@@ -13,21 +13,27 @@ import com.bashorundino.nairawallet.enums.TransactionType;
 import com.bashorundino.nairawallet.enums.*;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
 import com.bashorundino.nairawallet.exception.InsufficientFundsException;
+import com.bashorundino.nairawallet.exception.WalletNotFoundException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.IllegalTransactionStateException;
 
 import java.math.BigDecimal;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -70,8 +76,10 @@ public class TransactionServiceImpTest {
         var wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
 
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
         var savedTransaction = Transaction.builder()
-                .wallet(wallet)
+                .destinationWallet(wallet)
                 .txReference("TXN-ABC-001")
                 .amount(new BigDecimal("500.00"))
                 .transactionType(TransactionType.DEPOSIT)
@@ -87,7 +95,7 @@ public class TransactionServiceImpTest {
         when(transactionRepository.save(any(Transaction.class))).
                 thenReturn(savedTransaction);
 
-        when(transactionMapper.mapToResponse(any(Transaction.class))).
+        when(transactionMapper.mapToResponse(any(Transaction.class),anyLong())).
                 thenReturn(expectedResponse);
 
 //        Act
@@ -118,7 +126,7 @@ public class TransactionServiceImpTest {
 
         verify(idempotencyKeyService).save("Deposit-001");
 
-        verify(transactionMapper).mapToResponse(savedTransaction);
+        verify(transactionMapper).mapToResponse(savedTransaction, walletId);
 
     }
 
@@ -184,8 +192,10 @@ public class TransactionServiceImpTest {
         var wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
 
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
         var savedTransaction = Transaction.builder()
-                .wallet(wallet)
+                .sourceWallet(wallet)
                 .txReference("TXN-WTH-001")
                 .amount(new BigDecimal("300.00"))
                 .transactionType(TransactionType.WITHDRAWAL)
@@ -201,7 +211,7 @@ public class TransactionServiceImpTest {
         when(transactionRepository.save(any(Transaction.class))).
                 thenReturn(savedTransaction);
 
-        when(transactionMapper.mapToResponse(any(Transaction.class)))
+        when(transactionMapper.mapToResponse(any(Transaction.class), anyLong()))
                 .thenReturn(expectedResponse);
 
 //        Act
@@ -234,7 +244,7 @@ public class TransactionServiceImpTest {
 
         verify(idempotencyKeyService).save("Withdrawal-001");
 
-        verify(transactionMapper).mapToResponse(savedTransaction);
+        verify(transactionMapper).mapToResponse(savedTransaction, walletId);
     }
 
     @Test
@@ -329,7 +339,8 @@ public class TransactionServiceImpTest {
         ReflectionTestUtils.setField(receiverWallet, "id", receiverWalletId);
 
         var savedTransaction = Transaction.builder()
-                .wallet(senderWallet)
+                .sourceWallet(senderWallet)
+                .destinationWallet(receiverWallet)
                 .txReference("TXN-TRANSFER-001")
                 .amount(new BigDecimal("300.00"))
                 .transactionType(TransactionType.TRANSFER)
@@ -348,7 +359,7 @@ public class TransactionServiceImpTest {
         when(transactionRepository.save(any(Transaction.class)))
                 .thenReturn(savedTransaction);
 
-        when(transactionMapper.mapToResponse(any(Transaction.class)))
+        when(transactionMapper.mapToResponse(any(Transaction.class), anyLong()))
                 .thenReturn(expectedResponse);
 
 //    Act
@@ -416,7 +427,7 @@ public class TransactionServiceImpTest {
 
 //    Verify response mapping
         verify(transactionMapper)
-                .mapToResponse(savedTransaction);
+                .mapToResponse(savedTransaction, senderWalletId);
     }
 
     @Test
@@ -738,4 +749,219 @@ public class TransactionServiceImpTest {
         verify(idempotencyKeyService, never())
                 .save("Transfer-005");
     }
+
+    @Test
+    @DisplayName("Should retrieve transactions for wallet")
+    void shouldGetTransactionsForWallet() {
+
+        // Arrange
+        Long walletId = 2L;
+
+        User sender = User.builder()
+                .fullName("Sender User")
+                .email("history-sender@gmail.com")
+                .phoneNumber("08012345001")
+                .build();
+
+        User receiver = User.builder()
+                .fullName("Receiver User")
+                .email("history-receiver@gmail.com")
+                .phoneNumber("08012345002")
+                .build();
+
+        Wallet senderWallet = Wallet.createFor(sender);
+        Wallet receiverWallet = Wallet.createFor(receiver);
+
+        ReflectionTestUtils.setField(
+                senderWallet, "id", 1L);
+
+        ReflectionTestUtils.setField(
+                receiverWallet, "id", walletId);
+
+        Transaction transaction = Transaction.builder()
+                .sourceWallet(senderWallet)
+                .destinationWallet(receiverWallet)
+                .txReference("TXN-HISTORY-001")
+                .amount(new BigDecimal("300.00"))
+                .transactionType(TransactionType.TRANSFER)
+                .status(TransactionStatus.SUCCESS)
+                .narration("Wallet Transfer")
+                .build();
+
+        Page<Transaction> transactionPage =
+                new PageImpl<>(List.of(transaction));
+
+        TransactionResponse expectedResponse = mock(TransactionResponse.class);
+
+        when(walletService.findById(walletId))
+                .thenReturn(receiverWallet);
+
+        when(transactionRepository
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        eq(walletId),
+                        eq(walletId),
+                        any(Pageable.class)
+                ))
+                .thenReturn(transactionPage);
+
+        when(transactionMapper.mapToResponse(
+                transaction,
+                walletId
+        )).thenReturn(expectedResponse);
+
+        // Act
+        org.springframework.data.domain.Page<TransactionResponse> response =
+                transactionService.getTransactions(
+                        walletId,
+                        0,
+                        10
+                );
+
+        // Assert
+        assertEquals(1, response.getTotalElements());
+        assertEquals(expectedResponse, response.getContent().get(0));
+
+        verify(walletService).findById(walletId);
+
+        verify(transactionRepository)
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        eq(walletId),
+                        eq(walletId),
+                        any(Pageable.class)
+                );
+
+        verify(transactionMapper)
+                .mapToResponse(
+                        transaction,
+                        walletId
+                );
+    }
+
+    @Test
+    @DisplayName("Should return empty transaction history when wallet has no transactions")
+    void shouldReturnEmptyTransactionHistory() {
+
+        // Arrange
+        Long walletId = 2L;
+
+        Wallet wallet = mock(Wallet.class);
+
+        Page<Transaction> emptyPage = Page.empty();
+
+        when(walletService.findById(walletId))
+                .thenReturn(wallet);
+
+        when(transactionRepository
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        eq(walletId),
+                        eq(walletId),
+                        any(Pageable.class)
+                ))
+                .thenReturn(emptyPage);
+
+        // Act
+        Page<TransactionResponse> response =
+                transactionService.getTransactions(
+                        walletId,
+                        0,
+                        10
+                );
+
+        // Assert
+        assertNotNull(response);
+        assertTrue(response.isEmpty());
+        assertEquals(0, response.getTotalElements());
+
+        verify(walletService).findById(walletId);
+
+        verify(transactionRepository)
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        eq(walletId),
+                        eq(walletId),
+                        any(Pageable.class)
+                );
+
+        verifyNoInteractions(transactionMapper);
+    }
+
+    @Test
+    @DisplayName("Should reject transaction history request for non-existent wallet")
+    void shouldRejectTransactionHistoryForNonExistentWallet() {
+
+        // Arrange
+        Long walletId = 912L;
+
+        when(walletService.findById(walletId))
+                .thenThrow(new WalletNotFoundException(
+                        "Wallet not found: " + walletId
+                ));
+
+        // Act & Assert
+        assertThrows(
+                WalletNotFoundException.class,
+                () -> transactionService.getTransactions(
+                        walletId,
+                        0,
+                        10
+                )
+        );
+
+        verify(walletService).findById(walletId);
+
+        verifyNoInteractions(transactionRepository);
+        verifyNoInteractions(transactionMapper);
+    }
+
+    @Test
+    @DisplayName("Should apply pagination when retrieving transaction history")
+    void shouldApplyPaginationWhenRetrievingTransactions() {
+
+        // Arrange
+        Long walletId = 2L;
+
+        Wallet wallet = mock(Wallet.class);
+
+        Page<Transaction> transactionPage =
+                new PageImpl<>(List.of());
+
+        when(walletService.findById(walletId))
+                .thenReturn(wallet);
+
+        when(transactionRepository
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        eq(walletId),
+                        eq(walletId),
+                        any(Pageable.class)
+                ))
+                .thenReturn(transactionPage);
+
+        // Act
+        transactionService.getTransactions(
+                walletId,
+                1,
+                5
+        );
+
+        // Assert
+        ArgumentCaptor<Pageable> pageableCaptor =
+                ArgumentCaptor.forClass(Pageable.class);
+
+        verify(transactionRepository)
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                        eq(walletId),
+                        eq(walletId),
+                        pageableCaptor.capture()
+                );
+
+        Pageable pageable = pageableCaptor.getValue();
+
+        assertEquals(1, pageable.getPageNumber());
+        assertEquals(5, pageable.getPageSize());
+
+        assertEquals(
+                Sort.Direction.DESC,
+                pageable.getSort().getOrderFor("createdAt").getDirection()
+        );
+    }
+
 }
