@@ -8,8 +8,6 @@ package com.bashorundino.nairawallet.service;
 
 public interface IdempotencyKeyService {
 
-    void validate(String key);
-
-    void save(String key);
+    void claim(String key);
 
 }

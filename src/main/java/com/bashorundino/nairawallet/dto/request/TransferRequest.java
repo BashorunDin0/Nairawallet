@@ -18,7 +18,6 @@ public record TransferRequest(
         Long receiverWalletId,
         @Positive
         BigDecimal amount,
-
         String narration
 ) {
 }

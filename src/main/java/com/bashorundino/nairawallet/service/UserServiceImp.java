@@ -15,6 +15,7 @@ import com.bashorundino.nairawallet.mapper.UserMapper;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -23,6 +24,7 @@ public class UserServiceImp implements UserService{
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     @Override
@@ -40,10 +42,14 @@ public class UserServiceImp implements UserService{
             throw new UserAlreadyExistsException("Phone number already exists");
         }
 
+        String hashedPassword =
+                passwordEncoder.encode(request.password());
+
         User user = User.builder()
                 .fullName(request.fullName())
                 .email(email)
                 .phoneNumber(phoneNumber)
+                .password(hashedPassword)
                 .build();
 
         Wallet wallet = Wallet.createFor(user);

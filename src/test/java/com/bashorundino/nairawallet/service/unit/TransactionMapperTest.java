@@ -1,4 +1,4 @@
-package com.bashorundino.nairawallet.service;
+package com.bashorundino.nairawallet.service.unit;
 
 
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;

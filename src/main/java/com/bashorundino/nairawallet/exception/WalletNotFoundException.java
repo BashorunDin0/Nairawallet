@@ -6,7 +6,7 @@ package com.bashorundino.nairawallet.exception;
  * This project was developed as part of a Fintech MVP series.
  */
 
-public class WalletNotFoundException extends WalletException {
+public class WalletNotFoundException extends RuntimeException {
     public WalletNotFoundException(String message) {
         super(message);
     }

@@ -1,4 +1,4 @@
-package com.bashorundino.nairawallet.service;
+package com.bashorundino.nairawallet.service.unit;
 
 import com.bashorundino.nairawallet.dto.request.DepositRequest;
 import com.bashorundino.nairawallet.dto.request.TransferRequest;
@@ -10,12 +10,13 @@ import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.enums.LedgerEntryType;
 import com.bashorundino.nairawallet.enums.TransactionStatus;
 import com.bashorundino.nairawallet.enums.TransactionType;
-import com.bashorundino.nairawallet.enums.*;
+import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
 import com.bashorundino.nairawallet.exception.InsufficientFundsException;
 import com.bashorundino.nairawallet.exception.WalletNotFoundException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
+import com.bashorundino.nairawallet.service.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,12 +27,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.IllegalTransactionStateException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,6 +57,9 @@ public class TransactionServiceImpTest {
 
     @Mock
     private TransactionMapper transactionMapper;
+
+    @Mock
+    private CurrentUserService currentUserService;
 
     @InjectMocks
     private TransactionServiceImp transactionService;
@@ -108,7 +114,7 @@ public class TransactionServiceImpTest {
 
         assertEquals(expectedResponse, response);
 
-        verify(idempotencyKeyService).validate("Deposit-001");
+        verify(idempotencyKeyService).claim("Deposit-001");
 
         verify(walletService).findById(walletId);
 
@@ -123,8 +129,6 @@ public class TransactionServiceImpTest {
                 eq(LedgerEntryType.CREDIT),
                 eq("Wallet Deposit")
         );
-
-        verify(idempotencyKeyService).save("Deposit-001");
 
         verify(transactionMapper).mapToResponse(savedTransaction, walletId);
 
@@ -170,9 +174,6 @@ public class TransactionServiceImpTest {
                 any(LedgerEntryType.class),
                 anyString()
         );
-        verify(idempotencyKeyService, never()).save("Deposit-002");
-
-
     }
 
     @Test
@@ -225,7 +226,7 @@ public class TransactionServiceImpTest {
 
         assertEquals(expectedResponse, response);
 
-        verify(idempotencyKeyService).validate("Withdrawal-001");
+        verify(idempotencyKeyService).claim("Withdrawal-001");
 
         verify(walletService).findById(walletId);
 
@@ -241,9 +242,6 @@ public class TransactionServiceImpTest {
                 eq(LedgerEntryType.DEBIT),
                 eq("Wallet Withdrawal")
         );
-
-        verify(idempotencyKeyService).save("Withdrawal-001");
-
         verify(transactionMapper).mapToResponse(savedTransaction, walletId);
     }
 
@@ -292,9 +290,6 @@ public class TransactionServiceImpTest {
                 any(LedgerEntryType.class),
                 anyString()
         );
-
-        verify(idempotencyKeyService, never())
-                .save("Withdrawal-002");
 
 //    Verify wallet balance was not changed
         assertEquals(
@@ -385,10 +380,7 @@ public class TransactionServiceImpTest {
 
 //    Verify idempotency
         verify(idempotencyKeyService)
-                .validate("Transfer-001");
-
-        verify(idempotencyKeyService)
-                .save("Transfer-001");
+                .claim("Transfer-001");
 
 //    Verify both wallets were retrieved
         verify(walletService)
@@ -490,10 +482,6 @@ public class TransactionServiceImpTest {
                 any(LedgerEntryType.class),
                 anyString()
         );
-
-//    Verify idempotency key was not saved
-        verify(idempotencyKeyService, never())
-                .save("Transfer-002");
     }
 
     @Test
@@ -581,10 +569,6 @@ public class TransactionServiceImpTest {
                 any(LedgerEntryType.class),
                 anyString()
         );
-
-//    Verify idempotency key was not saved
-        verify(idempotencyKeyService, never())
-                .save("Transfer-003");
     }
 
     @Test
@@ -672,10 +656,6 @@ public class TransactionServiceImpTest {
                 any(LedgerEntryType.class),
                 anyString()
         );
-
-//    Verify idempotency key was not saved
-        verify(idempotencyKeyService, never())
-                .save("Transfer-004");
     }
 
     @Test
@@ -744,10 +724,6 @@ public class TransactionServiceImpTest {
                 any(LedgerEntryType.class),
                 anyString()
         );
-
-        // Verify idempotency key was not saved
-        verify(idempotencyKeyService, never())
-                .save("Transfer-005");
     }
 
     @Test
@@ -795,9 +771,11 @@ public class TransactionServiceImpTest {
 
         when(walletService.findById(walletId))
                 .thenReturn(receiverWallet);
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn("history-receiver@gmail.com");
 
         when(transactionRepository
-                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         eq(walletId),
                         eq(walletId),
                         any(Pageable.class)
@@ -824,7 +802,7 @@ public class TransactionServiceImpTest {
         verify(walletService).findById(walletId);
 
         verify(transactionRepository)
-                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         eq(walletId),
                         eq(walletId),
                         any(Pageable.class)
@@ -845,6 +823,15 @@ public class TransactionServiceImpTest {
         Long walletId = 2L;
 
         Wallet wallet = mock(Wallet.class);
+        User user = User.builder()
+                .email("history-user@gmail.com")
+                .build();
+
+        when(wallet.getUser())
+                .thenReturn(user);
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn("history-user@gmail.com");
 
         Page<Transaction> emptyPage = Page.empty();
 
@@ -852,7 +839,7 @@ public class TransactionServiceImpTest {
                 .thenReturn(wallet);
 
         when(transactionRepository
-                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         eq(walletId),
                         eq(walletId),
                         any(Pageable.class)
@@ -875,7 +862,7 @@ public class TransactionServiceImpTest {
         verify(walletService).findById(walletId);
 
         verify(transactionRepository)
-                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         eq(walletId),
                         eq(walletId),
                         any(Pageable.class)
@@ -921,6 +908,16 @@ public class TransactionServiceImpTest {
 
         Wallet wallet = mock(Wallet.class);
 
+        User user = User.builder()
+                .email("pagination-user@gmail.com")
+                .build();
+
+        when(wallet.getUser())
+                .thenReturn(user);
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn("pagination-user@gmail.com");
+
         Page<Transaction> transactionPage =
                 new PageImpl<>(List.of());
 
@@ -928,7 +925,7 @@ public class TransactionServiceImpTest {
                 .thenReturn(wallet);
 
         when(transactionRepository
-                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         eq(walletId),
                         eq(walletId),
                         any(Pageable.class)
@@ -947,7 +944,7 @@ public class TransactionServiceImpTest {
                 ArgumentCaptor.forClass(Pageable.class);
 
         verify(transactionRepository)
-                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         eq(walletId),
                         eq(walletId),
                         pageableCaptor.capture()
@@ -958,10 +955,156 @@ public class TransactionServiceImpTest {
         assertEquals(1, pageable.getPageNumber());
         assertEquals(5, pageable.getPageSize());
 
+//        assertEquals(
+//                Sort.Direction.DESC,
+//                pageable.getSort().getOrderFor("createdAt").getDirection()
+//        );
+    }
+
+    @Test
+    @DisplayName("Should reject duplicate idempotency key")
+    void shouldRejectDuplicateIdempotencyKey() {
+
+        // Arrange
+        Long walletId = 1L;
+        String idempotencyKey = "IDEMP-001";
+
+        User user = User.builder()
+                .fullName("Idempotency User")
+                .email("idempotency" + UUID.randomUUID() + "@gmail.com")
+                .phoneNumber("080" + String.format("%08d", new Random().nextInt(100_000_000)))
+                .build();
+
+        Wallet wallet = Wallet.createFor(user);
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
+        doThrow(new DuplicateTransactionException("Duplicate idempotency key"))
+                .when(idempotencyKeyService)
+                .claim(idempotencyKey);
+
+        DepositRequest request = new DepositRequest(
+                walletId,
+                new BigDecimal("500.00")
+        );
+
+        // Act & Assert
+        assertThrows(
+                DuplicateTransactionException.class,
+                () -> transactionService.deposit(
+                        request,
+                        idempotencyKey
+                )
+        );
+
+        // Verify the wallet was never modified
         assertEquals(
-                Sort.Direction.DESC,
-                pageable.getSort().getOrderFor("createdAt").getDirection()
+                BigDecimal.ZERO,
+                wallet.getBalance()
+        );
+
+        verify(idempotencyKeyService)
+                .claim(idempotencyKey);
+
+        verifyNoInteractions(transactionRepository);
+        verifyNoInteractions(ledgerEntryService);
+        verifyNoInteractions(transactionMapper);
+
+        verify(walletService, never()).findById(walletId);
+    }
+
+    @Test
+    @DisplayName("Should save idempotency key after successful deposit")
+    void shouldSaveIdempotencyKeyAfterSuccessfulDeposit() {
+
+        // Arrange
+        Long walletId = 1L;
+        String idempotencyKey = "IDEMP-SUCCESS-001";
+
+        User user = User.builder()
+                .fullName("Idempotency Success User")
+                .email("idempotency-success-" + UUID.randomUUID() + "@gmail.com")
+                .phoneNumber("080" + String.format("%08d",
+                        new Random().nextInt(100_000_000)))
+                .build();
+
+        Wallet wallet = Wallet.createFor(user);
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
+        when(walletService.findById(walletId))
+                .thenReturn(wallet);
+
+        DepositRequest request = new DepositRequest(
+                walletId,
+                new BigDecimal("500.00")
+        );
+
+        Transaction transaction = Transaction.builder()
+                .txReference("TXN-IDEMP-001")
+                .transactionType(TransactionType.DEPOSIT)
+                .amount(new BigDecimal("500.00"))
+                .status(TransactionStatus.PENDING)
+                .narration("Wallet Deposit")
+                .destinationWallet(wallet)
+                .build();
+
+        when(transactionRepository.save(any(Transaction.class)))
+                .thenReturn(transaction);
+
+        // Act
+        transactionService.deposit(request, idempotencyKey);
+
+        // Assert
+        verify(idempotencyKeyService)
+                .claim(idempotencyKey);
+
+        verify(transactionRepository, atLeastOnce())
+                .save(any(Transaction.class));
+
+        assertEquals(
+                new BigDecimal("500.00"),
+                wallet.getBalance()
         );
     }
 
+    @Test
+    @DisplayName("Should reject transaction history access for another user's wallet")
+    void shouldRejectAccessToAnotherUsersWallet() {
+
+        // Arrange
+        Long walletId = 2L;
+
+        User walletOwner = User.builder()
+                .fullName("Wallet Owner")
+                .email("owner@gmail.com")
+                .phoneNumber("08012345678")
+                .build();
+
+        Wallet wallet = Wallet.createFor(walletOwner);
+
+        ReflectionTestUtils.setField(wallet, "id", walletId);
+
+        when(walletService.findById(walletId))
+                .thenReturn(wallet);
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn("attacker@gmail.com");
+
+        // Act & Assert
+        assertThrows(
+                AccessDeniedException.class,
+                () -> transactionService.getTransactions(
+                        walletId,
+                        0,
+                        10
+                )
+        );
+
+        // Verify repository was never reached
+        verify(transactionRepository, never())
+                .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
+                        anyLong(),
+                        anyLong(),
+                        any(Pageable.class)
+                );
+    }
 }

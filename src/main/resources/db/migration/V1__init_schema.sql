@@ -26,7 +26,8 @@ CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE C
 -- 3. Create Transactions Table
 CREATE TABLE wallet_transactions(
 id BIGSERIAL PRIMARY KEY,
-wallet_id BIGINT NOT NULL,
+source_wallet_id BIGINT,
+destination_wallet_id BIGINT,
 tx_reference VARCHAR(255) NOT NULL UNIQUE,
 transaction_type VARCHAR(50) NOT NULL ,
 amount NUMERIC(19,2) NOT NULL,

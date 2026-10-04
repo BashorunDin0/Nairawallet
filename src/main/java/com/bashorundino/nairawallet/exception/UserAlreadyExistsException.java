@@ -6,7 +6,7 @@ package com.bashorundino.nairawallet.exception;
  * This project was developed as part of a Fintech MVP series.
  */
 
-public class UserAlreadyExistsException extends WalletException {
+public class UserAlreadyExistsException extends RuntimeException {
     public UserAlreadyExistsException(String message) {
         super(message);
     }

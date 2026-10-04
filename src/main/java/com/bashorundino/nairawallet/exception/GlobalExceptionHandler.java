@@ -2,13 +2,15 @@ package com.bashorundino.nairawallet.exception;
 
 import com.bashorundino.nairawallet.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,26 +21,14 @@ import java.util.Map;
  * This project was developed as part of a Fintech MVP series.
  */
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception exception, HttpServletRequest request) {
-        ErrorResponse errorResponse = new ErrorResponse(
-                Instant.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                exception.getMessage(),
-                request.getRequestURI(),
-                null
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(errorResponse);
-
-    }
-
     @ExceptionHandler(DuplicateTransactionException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateTransaction(DuplicateTransactionException ex,
-                                                                    HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleDuplicateTransaction(
+            DuplicateTransactionException ex,
+            HttpServletRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.CONFLICT.value(),
@@ -50,8 +40,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
-                                                                      HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.CONFLICT.value(),
@@ -63,8 +54,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(InsufficientFundsException.class)
-    public ResponseEntity<ErrorResponse> handleInsufficientFunds(InsufficientFundsException ex,
-                                                                 HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleInsufficientFunds(
+            InsufficientFundsException ex,
+            HttpServletRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.UNPROCESSABLE_CONTENT.value(),
@@ -73,12 +65,14 @@ public class GlobalExceptionHandler {
                 null
         );
 
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(errorResponse);
     }
 
     @ExceptionHandler(WalletNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleWalletNotFound(WalletNotFoundException ex,
-                                                              HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleWalletNotFound(
+            WalletNotFoundException ex,
+            HttpServletRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.NOT_FOUND.value(),
@@ -90,8 +84,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleUserAlreadyExists(UserAlreadyExistsException ex,
-                                                                 HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleUserAlreadyExists(
+            UserAlreadyExistsException ex,
+            HttpServletRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.CONFLICT.value(),
@@ -100,12 +95,14 @@ public class GlobalExceptionHandler {
                 null
         );
 
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(errorResponse);
     }
 
     @ExceptionHandler(InactiveWalletException.class)
-    public ResponseEntity<ErrorResponse> handleInactiveWallet(InactiveWalletException ex,
-                                                              HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleInactiveWallet(
+            InactiveWalletException ex,
+            HttpServletRequest request) {
         ErrorResponse response = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.UNPROCESSABLE_CONTENT.value(),
@@ -114,8 +111,27 @@ public class GlobalExceptionHandler {
                 null
         );
 
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT).body(response);
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_CONTENT)
+                .body(response);
     }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(
+            AuthenticationException ex
+            , HttpServletRequest request
+    ){
+        ErrorResponse response = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                "Invalid email or password",
+                request.getRequestURI(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(response);
+
+    }
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(
@@ -135,8 +151,48 @@ public class GlobalExceptionHandler {
                 errors
         );
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
     }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpectedException(
+            Exception ex, HttpServletRequest request){
+
+        log.error(
+                "unexpected error while processing request: {}",
+                request.getRequestURI(),
+                ex);
+        ErrorResponse response = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Something went wrong. Please " +
+                        "contact support if this persists.",
+                request.getRequestURI(),
+                null
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(response);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        ErrorResponse response = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.FORBIDDEN.value(),
+                "You are not allowed to access this resource",
+                request.getRequestURI(),
+                null
+        );
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(response);
+    }
+
+
 }
 
 

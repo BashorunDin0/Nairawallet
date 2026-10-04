@@ -11,7 +11,10 @@ import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
 import com.bashorundino.nairawallet.repository.IdempotencyKeyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -24,32 +27,13 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
     private final IdempotencyKeyRepository repository;
     private static final int EXPIRY_HOUR = 24;
 
-
     @Override
-    public void validate(String key) {
-        log.debug("Validating idempotency-key: {}", key);
-        if (key == null || key.isBlank()) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void claim(String key){
+        if (key == null || key.isBlank()){
             throw new IllegalArgumentException("Idempotency-key header is required");
         }
 
-        String normalizedKey = key.trim();
-        Instant now = Instant.now();
-
-
-        boolean exists = repository
-                .existsByIdempotencyKeyAndExpireAtAfter(
-                        normalizedKey, now);
-
-        if (exists) {
-            log.warn("Duplicate key detected : {}", normalizedKey);
-            throw new DuplicateTransactionException("Duplicate request detected");
-        }
-        log.debug("Idempotency key validated successfully : {}", normalizedKey);
-    }
-
-    @Override
-    public void save(String key) {
-        log.debug("Saving idempotency key: {}", key);
         String normalizedKey = key.trim();
         Instant now = Instant.now();
 
@@ -58,6 +42,14 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
                 .createdAt(now)
                 .expireAt(now.plus(Duration.ofHours(EXPIRY_HOUR)))
                 .build();
-        repository.save(idempotencyKey);
+        try {
+            repository.saveAndFlush(idempotencyKey);
+        } catch (DataIntegrityViolationException exception){
+            log.warn("Duplicate idempotency detected: {}", normalizedKey);
+            throw new DuplicateTransactionException(
+                    "Duplicate request detected");
+        }
+
     }
+
 }

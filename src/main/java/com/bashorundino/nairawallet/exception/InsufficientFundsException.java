@@ -5,7 +5,7 @@ package com.bashorundino.nairawallet.exception;
  * All rights reserved.
  * This project was developed as part of a Fintech MVP series.
  */
-public class InsufficientFundsException extends WalletException {
+public class InsufficientFundsException extends RuntimeException {
     public InsufficientFundsException(String message) {
         super(message);
     }

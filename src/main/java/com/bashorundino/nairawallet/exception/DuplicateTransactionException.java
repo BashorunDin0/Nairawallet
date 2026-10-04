@@ -5,7 +5,7 @@ package com.bashorundino.nairawallet.exception;
  * All rights reserved.
  * This project was developed as part of a Fintech MVP series.
  */
-public class DuplicateTransactionException extends WalletException {
+public class DuplicateTransactionException extends RuntimeException {
     public DuplicateTransactionException(String message) {
         super(message);
     }

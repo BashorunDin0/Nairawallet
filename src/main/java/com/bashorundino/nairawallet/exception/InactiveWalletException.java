@@ -6,7 +6,7 @@ package com.bashorundino.nairawallet.exception;
  * This project was developed as part of a Fintech MVP series.
  */
 
-public class InactiveWalletException extends WalletException {
+public class InactiveWalletException extends RuntimeException {
     public InactiveWalletException(String message){
         super(message);
     }

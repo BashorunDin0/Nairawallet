@@ -41,7 +41,7 @@ public class Transaction {
     private TransactionType transactionType;
 
     @DecimalMin(value = "0.01")
-    @Digits(integer = 19, fraction = 2)
+    @Digits(integer = 17, fraction = 2)
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
@@ -63,11 +63,11 @@ public class Transaction {
     @JoinColumn(name = "destination_wallet_id")
     private Wallet destinationWallet;
 
+    @OneToMany(mappedBy = "transaction", fetch = FetchType.LAZY)
+    private List<LedgerEntry> ledgerEntries;
+
     public void markSuccessful(){
 
         this.status = TransactionStatus.SUCCESS;
     }
-
-    @OneToMany(mappedBy = "transaction", fetch = FetchType.LAZY)
-    private List<LedgerEntry> ledgerEntries;
 }

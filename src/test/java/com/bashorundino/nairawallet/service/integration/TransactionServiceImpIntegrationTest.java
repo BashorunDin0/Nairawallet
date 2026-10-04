@@ -1,4 +1,4 @@
-package com.bashorundino.nairawallet.service;
+package com.bashorundino.nairawallet.service.integration;
 
 
 import com.bashorundino.nairawallet.dto.request.TransferRequest;
@@ -7,11 +7,13 @@ import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.repository.WalletRepository;
+import com.bashorundino.nairawallet.service.TransactionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -24,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
+@ActiveProfiles("test")
 public class TransactionServiceImpIntegrationTest {
 
     @Autowired
@@ -45,6 +48,7 @@ public class TransactionServiceImpIntegrationTest {
         User sender = User.builder()
                 .fullName("Integration-" + UUID.randomUUID())
                 .email("integration-sender-" + UUID.randomUUID() + "@gmail.com")
+                .password("password123")
                 .phoneNumber("080" + UUID.randomUUID().toString().replace("-",
                         "").substring(0, 8))
                 .build();
@@ -55,6 +59,7 @@ public class TransactionServiceImpIntegrationTest {
         User receiver = User.builder()
                 .fullName("receiver-" + UUID.randomUUID())
                 .email("integration-receiver-" + UUID.randomUUID() + "@gmail.com")
+                .password("password123")
                 .phoneNumber("070" + UUID.randomUUID().toString().
                         replace("-", "").substring(0, 8))
                 .build();

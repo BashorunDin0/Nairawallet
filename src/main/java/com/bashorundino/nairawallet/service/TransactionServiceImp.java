@@ -17,15 +17,15 @@ import com.bashorundino.nairawallet.enums.TransactionStatus;
 import com.bashorundino.nairawallet.enums.TransactionType;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.IllegalTransactionStateException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -39,6 +39,7 @@ public class TransactionServiceImp implements TransactionService {
     private final WalletService walletService;
     private final LedgerEntryService ledgerEntryService;
     private final IdempotencyKeyService idempotencyKeyService;
+    private final CurrentUserService currentUserService;
 
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
@@ -48,7 +49,7 @@ public class TransactionServiceImp implements TransactionService {
         log.info("Deposit request received. Wallet = {}, Amount = {}",
                 request.walletId(), request.amount()
         );
-        idempotencyKeyService.validate(idempotencyKey);
+        idempotencyKeyService.claim(idempotencyKey);
         Wallet wallet = walletService.findById(request.walletId());
 
         BigDecimal balanceBefore = wallet.getBalance();
@@ -75,16 +76,16 @@ public class TransactionServiceImp implements TransactionService {
 
         );
         markSuccessful(transaction);
-        idempotencyKeyService.save(idempotencyKey);
         log.info("Deposit successful. reference = {}", transaction.getTxReference());
 
         return transactionMapper.mapToResponse(transaction, wallet.getId());
 
 
     }
+
     @Transactional
     public TransactionResponse withdrawal(WithdrawRequest request, String idempotencyKey) {
-        idempotencyKeyService.validate(idempotencyKey);
+        idempotencyKeyService.claim(idempotencyKey);
         Wallet wallet = walletService.findById(request.walletId());
 
         BigDecimal balanceBefore = wallet.getBalance();
@@ -109,7 +110,6 @@ public class TransactionServiceImp implements TransactionService {
                 "Wallet Withdrawal"
         );
         markSuccessful(transaction);
-        idempotencyKeyService.save(idempotencyKey);
         log.info("Withdrawal successful. reference = {}", transaction.getTxReference());
 
         return transactionMapper.mapToResponse(transaction, wallet.getId());
@@ -117,7 +117,7 @@ public class TransactionServiceImp implements TransactionService {
 
     @Transactional
     public TransactionResponse transfer(TransferRequest request, String idempotencyKey) {
-        idempotencyKeyService.validate(idempotencyKey);
+        idempotencyKeyService.claim(idempotencyKey);
 
         Wallet senderWallet = walletService.findById(request.senderWalletId());
         Wallet receiverWallet = walletService.findById(request.receiverWalletId());
@@ -161,20 +161,29 @@ public class TransactionServiceImp implements TransactionService {
                 "Wallet Transfer"
         );
         markSuccessful(transaction);
-        idempotencyKeyService.save(idempotencyKey);
         log.info("Transfer successful. reference: {}", transaction.getTxReference());
 
 
         return transactionMapper.mapToResponse(transaction, senderWallet.getId());
     }
-@Transactional
-    public Page<TransactionResponse> getTransactions(Long walletId, int page, int size) {
-        walletService.findById(walletId);
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+    @Transactional(readOnly = true)
+    public Page<TransactionResponse> getTransactions(Long walletId, int page, int size) {
+
+        Wallet wallet = walletService.findById(walletId);
+
+        String currentUserEmail = currentUserService.getCurrentUserEmail();
+
+        if (!wallet.getUser().getEmail().equals(currentUserEmail)){
+            throw new AccessDeniedException(
+                    "You are not allowed to access this wallet"
+            );
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
 
         Page<Transaction> transactions = transactionRepository.
-                findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDesc(
+                findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
                         walletId,
                         walletId,
                         pageable);

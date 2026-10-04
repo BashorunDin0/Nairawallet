@@ -31,29 +31,32 @@ public class TransactionController {
 
 
     @PostMapping("/deposit")
-    public ResponseEntity<TransactionResponse> deposit(@Valid @RequestBody DepositRequest request,
-                                                  @RequestHeader("Idempotency-key") String key){
+    public ResponseEntity<TransactionResponse> deposit(
+            @Valid @RequestBody DepositRequest request,
+            @RequestHeader("Idempotency-key") String key){
         TransactionResponse response = transactionService.deposit(request, key);
-        return ResponseEntity.ok().body(response);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/withdraw")
-    public ResponseEntity<TransactionResponse> withdraw(@Valid @RequestBody WithdrawRequest request,
-                                                   @RequestHeader("Idempotency-key") String key){
+    public ResponseEntity<TransactionResponse> withdraw(
+            @Valid @RequestBody WithdrawRequest request,
+            @RequestHeader("Idempotency-key") String key){
         TransactionResponse response = transactionService.withdrawal(request, key);
 
-        return ResponseEntity.ok().body(response);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<TransactionResponse> transferFunds(@Valid @RequestBody TransferRequest request,
-                                                             @RequestHeader("Idempotency-key") String key){
+    public ResponseEntity<TransactionResponse> transferFunds(
+            @Valid @RequestBody TransferRequest request,
+            @RequestHeader("Idempotency-key") String key){
         TransactionResponse response = transactionService.transfer(request, key);
 
-        return ResponseEntity.ok().body(response);
+        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("{walletId}")
+    @GetMapping("/wallet/{walletId}")
     public ResponseEntity<Page<TransactionResponse>> getTransactions(
             @PathVariable Long walletId,
             @RequestParam(defaultValue= "0")
@@ -63,7 +66,8 @@ public class TransactionController {
             @Min(value = 1, message = "page size must be at least 1")
             @Max(value = 100, message = "page size cannot exceed 100")
             int size){
-        Page<TransactionResponse> response = transactionService.getTransactions(walletId, page, size );
-        return ResponseEntity.ok().body(response);
+        Page<TransactionResponse> response = transactionService.getTransactions(
+                walletId, page, size );
+        return ResponseEntity.ok(response);
     }
 }
