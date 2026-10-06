@@ -9,10 +9,13 @@ package com.bashorundino.nairawallet.service;
 import com.bashorundino.nairawallet.dto.response.WalletResponse;
 import com.bashorundino.nairawallet.entity.Wallet;
 
+import java.util.Optional;
+
 public interface WalletService {
 
    Wallet findById(Long walletId);
 
-    WalletResponse getWallet(Long walletId);
+   WalletResponse getWallet(Long walletId);
 
+   Wallet findByIdForUpdate(Long walletId);
 }

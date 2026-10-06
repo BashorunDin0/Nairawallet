@@ -2,7 +2,6 @@ package com.bashorundino.nairawallet.security;
 
 
 import com.bashorundino.nairawallet.dto.request.CreateUserRequest;
-import com.bashorundino.nairawallet.dto.request.LoginRequest;
 import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.repository.WalletRepository;

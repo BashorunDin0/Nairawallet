@@ -14,6 +14,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Entity
 @Table(name = "wallets")
@@ -44,6 +45,9 @@ public class Wallet {
     private User user;
 
     public static Wallet createFor(User user){
+
+        Objects.requireNonNull(user, "user cannot be null");
+
         Wallet wallet = new Wallet();
         wallet.user = user;
         user.assignWallet(wallet);
@@ -68,13 +72,8 @@ public class Wallet {
     }
 
     public void deactivate(){
-        this.status = WalletStatus.INACTIVE;
-    }
 
-    public  boolean canDebit(BigDecimal amount){
-        validateAmount(amount);
-        ensureActive();
-        return this.balance.compareTo(amount) >= 0;
+        this.status = WalletStatus.INACTIVE;
     }
 
     private void validateAmount(BigDecimal amount){

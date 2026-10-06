@@ -21,8 +21,6 @@ import java.time.Instant;
 @Table(name = "users")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Builder
 
 public class User {
     @Id
@@ -44,7 +42,6 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
     private UserRole userRole = UserRole.USER;
 
     @NotBlank
@@ -61,7 +58,25 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Wallet wallet;
 
-    public void assignWallet(Wallet wallet){
+    public static User create(
+            String fullName,
+            String email,
+            String password,
+            String phoneNumber
+    ){
+        User user = new User();
+
+        user.fullName = fullName;
+        user.email = email;
+        user.password = password;
+        user.phoneNumber = phoneNumber;
+        user.userRole = UserRole.USER;
+
+        return user;
+    }
+
+    void assignWallet(Wallet wallet){
+
         this.wallet = wallet;
     }
 

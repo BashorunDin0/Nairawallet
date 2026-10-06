@@ -32,15 +32,16 @@ public class LedgerEntryServiceImp implements LedgerEntryService {
                             BigDecimal amount, BigDecimal balanceBefore,
                             BigDecimal balanceAfter, LedgerEntryType type,
                             String narration) {
-        LedgerEntry ledger =  LedgerEntry.builder()
-                .wallet(wallet)
-                .transaction(transaction)
-                .amount(amount)
-                .balanceBefore(balanceBefore)
-                .balanceAfter(balanceAfter)
-                .entryType(type)
-                .narration(narration)
-                .build();
+        LedgerEntry ledger =  LedgerEntry.create(
+                amount,
+                balanceBefore,
+                balanceAfter,
+                type,
+                narration,
+                wallet,
+                transaction
+        );
+
         ledgerRepository.save(ledger);
 
     }

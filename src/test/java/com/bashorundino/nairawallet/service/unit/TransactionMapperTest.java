@@ -6,14 +6,11 @@ import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.enums.TransactionDirection;
-import com.bashorundino.nairawallet.enums.TransactionStatus;
-import com.bashorundino.nairawallet.enums.TransactionType;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.util.Random;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,19 +28,17 @@ public class TransactionMapperTest {
         Long senderWalletId = 1L;
         Long receiverWalletId = 2L;
 
-        User sender = User.builder()
-                .fullName("Mapper test")
-                .email("sendermapper" + UUID.randomUUID() + "@gmail.com")
-                .phoneNumber("080" + String.format(
-                        "%08d", new Random().nextInt(100_000_000)))
-                .build();
+        User sender = createUser(
+                "Mapper test" + UUID.randomUUID(),
+                "sendermapper",
+                "080"
+                );
 
-        User receiver = User.builder()
-                .fullName("Mapper receiver")
-                .email("receivermapper" + UUID.randomUUID() + "@gmail.com")
-                .phoneNumber("080" + String.format(
-                        "%08d", new Random().nextInt(100_000_000)))
-                .build();
+        User receiver = createUser(
+                "Mapper receiver" + UUID.randomUUID(),
+                "receivermapper",
+                "080"
+                );
 
         Wallet senderWallet = Wallet.createFor(sender);
         Wallet receiverWallet = Wallet.createFor(receiver);
@@ -51,15 +46,13 @@ public class TransactionMapperTest {
         ReflectionTestUtils.setField(senderWallet, "id", senderWalletId);
         ReflectionTestUtils.setField(receiverWallet, "id", receiverWalletId);
 
-        Transaction transaction = Transaction.builder()
-                .sourceWallet(senderWallet)
-                .destinationWallet(receiverWallet)
-                .txReference("TXN-TRANSFER_001")
-                .amount(new BigDecimal("300.00"))
-                .transactionType(TransactionType.TRANSFER)
-                .status(TransactionStatus.SUCCESS)
-                .narration("Wallet transfer")
-                .build();
+        Transaction transaction = Transaction.createTransfer(
+                "TXN-TRANSFER_001",
+                new BigDecimal("300.00"),
+                "Wallet transfer",
+                senderWallet,
+                receiverWallet
+                );
 //  Act
         TransactionResponse response =
                 transactionMapper.mapToResponse(
@@ -80,19 +73,17 @@ public class TransactionMapperTest {
         Long senderWalletId = 1L;
         Long receiverWalletId = 2L;
 
-        User sender = User.builder()
-                .fullName("Mapper test2")
-                .email("sendermapper2" + UUID.randomUUID() + "@gmail.com")
-                .phoneNumber("080" + String.format(
-                        "%08d", new Random().nextInt(100_000_000)))
-                .build();
+        User sender = createUser(
+                "Mapper test2" + UUID.randomUUID(),
+                "sendermapper2",
+                "080"
+                );
 
-        User receiver = User.builder()
-                .fullName("Mapper receiver2")
-                .email("receivermapper2" + UUID.randomUUID() + "@gmail.com")
-                .phoneNumber("080" + String.format(
-                        "%08d", new Random().nextInt(100_000_000)))
-                .build();
+        User receiver = createUser(
+                "Mapper receiver2" + UUID.randomUUID(),
+                "receivermapper2",
+                "080"
+                );
 
         Wallet senderWallet = Wallet.createFor(sender);
         Wallet receiverWallet = Wallet.createFor(receiver);
@@ -100,15 +91,13 @@ public class TransactionMapperTest {
         ReflectionTestUtils.setField(senderWallet, "id", senderWalletId);
         ReflectionTestUtils.setField(receiverWallet, "id", receiverWalletId);
 
-        Transaction transaction = Transaction.builder()
-                .sourceWallet(senderWallet)
-                .destinationWallet(receiverWallet)
-                .txReference("TXN-TRANSFER_002")
-                .amount(new BigDecimal("300.00"))
-                .transactionType(TransactionType.TRANSFER)
-                .status(TransactionStatus.SUCCESS)
-                .narration("Wallet transfer")
-                .build();
+        Transaction transaction = Transaction.createTransfer(
+                        "TXN-TRANSFER_002",
+                        new BigDecimal("300.00"),
+                        "Wallet transfer",
+                        senderWallet,
+                        receiverWallet
+                );
 //  Act
         TransactionResponse response =
                 transactionMapper.mapToResponse(
@@ -127,26 +116,22 @@ public class TransactionMapperTest {
 //        Arrange
         Long walletId = 1L;
 
-        User user = User.builder()
-                .fullName("Deposit User")
-                .email("user" + UUID.randomUUID() + "@gmail.com")
-                .phoneNumber("080" + String.format("%08d",
-                        new Random().nextInt(100_000_000)))
-                .build();
+        User user = createUser(
+                "Deposit User" + UUID.randomUUID(),
+                "user",
+                "080"
+                );
 
         Wallet wallet = Wallet.createFor(user);
 
         ReflectionTestUtils.setField(wallet, "id", walletId);
 
-        Transaction transaction = Transaction.builder()
-                .sourceWallet(null)
-                .destinationWallet(wallet)
-                .txReference("TXN-DEPOSIT-001")
-                .amount(new BigDecimal("500.00"))
-                .transactionType(TransactionType.DEPOSIT)
-                .status(TransactionStatus.SUCCESS)
-                .narration("Wallet Deposit")
-                .build();
+        Transaction transaction = Transaction.createDeposit(
+                        "TXN-DEPOSIT-001",
+                        new BigDecimal("500.00"),
+                        "Wallet Deposit",
+                        wallet
+                );
 
 //        Act
         var response = transactionMapper.
@@ -154,5 +139,21 @@ public class TransactionMapperTest {
 
 //        Assert
         assertEquals(TransactionDirection.INCOMING, response.direction());
+    }
+
+    private User createUser(
+            String fullName,
+            String emailPrefix,
+            String phonePrefix
+    ) {
+        return User.create(
+                fullName,
+                emailPrefix + UUID.randomUUID() + "@gmail.com",
+                "password123",
+                phonePrefix + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 8)
+        );
     }
 }

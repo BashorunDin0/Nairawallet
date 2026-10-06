@@ -45,15 +45,14 @@ public class UserServiceImp implements UserService{
         String hashedPassword =
                 passwordEncoder.encode(request.password());
 
-        User user = User.builder()
-                .fullName(request.fullName())
-                .email(email)
-                .phoneNumber(phoneNumber)
-                .password(hashedPassword)
-                .build();
+        User user = User.create(
+                request.fullName(),
+                email,
+                hashedPassword,
+                phoneNumber
+        );
 
         Wallet wallet = Wallet.createFor(user);
-        user.assignWallet(wallet);
 
         User savedUser = userRepository.save(user);
 

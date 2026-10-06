@@ -19,8 +19,8 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
-import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,24 +45,20 @@ public class TransactionServiceImpIntegrationTest {
     void shouldRollbackTransferWhenReceiverIsInactive() {
 
 //        Arrange
-        User sender = User.builder()
-                .fullName("Integration-" + UUID.randomUUID())
-                .email("integration-sender-" + UUID.randomUUID() + "@gmail.com")
-                .password("password123")
-                .phoneNumber("080" + UUID.randomUUID().toString().replace("-",
-                        "").substring(0, 8))
-                .build();
+        User sender = createUser(
+                "Integration-" + UUID.randomUUID(),
+                "integration-sender-",
+                "080"
+                );
 
         Wallet senderWallet = Wallet.createFor(sender);
         senderWallet.credit(new BigDecimal("1000.00"));
 
-        User receiver = User.builder()
-                .fullName("receiver-" + UUID.randomUUID())
-                .email("integration-receiver-" + UUID.randomUUID() + "@gmail.com")
-                .password("password123")
-                .phoneNumber("070" + UUID.randomUUID().toString().
-                        replace("-", "").substring(0, 8))
-                .build();
+        User receiver = createUser(
+                "Integration-" + UUID.randomUUID(),
+                "integration-receiver-",
+                "070"
+        );
 
         Wallet receiverWallet = Wallet.createFor(receiver);
         receiverWallet.credit(new BigDecimal("500.00"));
@@ -106,11 +102,11 @@ public class TransactionServiceImpIntegrationTest {
     @DisplayName("Should reject stale wallet update using optimistic locking")
     void shouldRejectStaleWalletUpdate() {
 //        Arrange
-        User user = User.builder()
-                .fullName("Optimistic Lock")
-                .email("optimisticlock" + UUID.randomUUID() + "@gmail.com")
-                .phoneNumber("080" + String.format("%08d", new Random().nextInt(100_000_000)))
-                .build();
+        User user = createUser(
+                "Optimistic Lock",
+                "optimisticlock-",
+                "080"
+                );
 
         Wallet wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
@@ -157,5 +153,131 @@ public class TransactionServiceImpIntegrationTest {
                 })
         );
 
+    }
+
+    @Test
+    @DisplayName("Should handle concurrent transfers between the same two wallets")
+    void shouldHandleConcurrentOppositeDirectionTransfers() throws Exception {
+
+        // Arrange
+        User userA = createUser(
+                "Concurrent User A" + UUID.randomUUID(),
+                "concurrent-a-",
+                        "080"
+                );
+
+        User userB = createUser(
+                "Concurrent User B" + UUID.randomUUID(),
+                "concurrent-b-",
+                "070"
+                );
+
+        Wallet walletA = Wallet.createFor(userA);
+        Wallet walletB = Wallet.createFor(userB);
+
+        walletA.credit(new BigDecimal("1000.00"));
+        walletB.credit(new BigDecimal("1000.00"));
+
+        userRepository.saveAndFlush(userA);
+        userRepository.saveAndFlush(userB);
+
+        Long walletAId = walletA.getId();
+        Long walletBId = walletB.getId();
+
+        TransferRequest transferAtoB = new TransferRequest(
+                walletAId,
+                walletBId,
+                new BigDecimal("100.00"),
+                "Concurrent A to B"
+        );
+
+        TransferRequest transferBtoA = new TransferRequest(
+                walletBId,
+                walletAId,
+                new BigDecimal("100.00"),
+                "Concurrent B to A"
+        );
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        try {
+            Future<?> transfer1 = executor.submit(() -> {
+                try {
+                    startLatch.await();
+
+                    transactionService.transfer(
+                            transferAtoB,
+                            "concurrent-" + UUID.randomUUID()
+                    );
+
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Future<?> transfer2 = executor.submit(() -> {
+                try {
+                    startLatch.await();
+
+                    transactionService.transfer(
+                            transferBtoA,
+                            "concurrent-" + UUID.randomUUID()
+                    );
+
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            // Start both transfers at approximately the same time
+            startLatch.countDown();
+
+            // If the locking strategy is broken, this can hang.
+            transfer1.get(10, TimeUnit.SECONDS);
+            transfer2.get(10, TimeUnit.SECONDS);
+
+        } finally {
+            executor.shutdownNow();
+        }
+
+        // Reload wallets from the database
+        Wallet walletAAfter = walletRepository
+                .findById(walletAId)
+                .orElseThrow();
+
+        Wallet walletBAfter = walletRepository
+                .findById(walletBId)
+                .orElseThrow();
+
+        // Both transfers were for the same amount in opposite directions.
+        assertEquals(
+                new BigDecimal("1000.00"),
+                walletAAfter.getBalance()
+        );
+
+        assertEquals(
+                new BigDecimal("1000.00"),
+                walletBAfter.getBalance()
+        );
+    }
+
+
+
+    private User createUser(
+            String fullName,
+            String emailPrefix,
+            String phonePrefix
+    ) {
+        return User.create(
+                fullName,
+                emailPrefix + UUID.randomUUID() + "@gmail.com",
+                "password123",
+                phonePrefix + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 8)
+        );
     }
 }
