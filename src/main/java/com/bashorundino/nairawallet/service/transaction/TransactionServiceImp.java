@@ -1,4 +1,4 @@
-package com.bashorundino.nairawallet.service;
+package com.bashorundino.nairawallet.service.transaction;
 
 /*
  * Copyright (c) 2026. [Yusuff I. Olawale/BashorunDIn0].
@@ -14,9 +14,8 @@ import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import com.bashorundino.nairawallet.service.transaction.DepositService;
-import com.bashorundino.nairawallet.service.transaction.TransferService;
-import com.bashorundino.nairawallet.service.transaction.WithdrawalService;
+import com.bashorundino.nairawallet.service.CurrentUserService;
+import com.bashorundino.nairawallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

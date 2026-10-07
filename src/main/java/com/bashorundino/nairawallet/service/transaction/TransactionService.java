@@ -1,4 +1,4 @@
-package com.bashorundino.nairawallet.service;
+package com.bashorundino.nairawallet.service.transaction;
 
 import com.bashorundino.nairawallet.dto.request.DepositRequest;
 import com.bashorundino.nairawallet.dto.request.WithdrawRequest;

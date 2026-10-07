@@ -1,24 +1,15 @@
 package com.bashorundino.nairawallet.service.unit;
 
-import com.bashorundino.nairawallet.dto.request.DepositRequest;
-import com.bashorundino.nairawallet.dto.request.TransferRequest;
-import com.bashorundino.nairawallet.dto.request.WithdrawRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
 import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.entity.Wallet;
-import com.bashorundino.nairawallet.enums.LedgerEntryType;
-import com.bashorundino.nairawallet.enums.TransactionStatus;
-import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
-import com.bashorundino.nairawallet.exception.InactiveWalletException;
-import com.bashorundino.nairawallet.exception.InsufficientFundsException;
 import com.bashorundino.nairawallet.exception.WalletNotFoundException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import com.bashorundino.nairawallet.service.*;
-import com.bashorundino.nairawallet.service.transaction.DepositService;
-import com.bashorundino.nairawallet.service.transaction.TransferService;
-import com.bashorundino.nairawallet.service.transaction.WithdrawalService;
+import com.bashorundino.nairawallet.service.CurrentUserService;
+import com.bashorundino.nairawallet.service.transaction.TransactionServiceImp;
+import com.bashorundino.nairawallet.service.WalletService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,7 +22,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.IllegalTransactionStateException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -48,12 +38,6 @@ public class TransactionServiceImpTest {
     private WalletService walletService;
 
     @Mock
-    private LedgerEntryService ledgerEntryService;
-
-    @Mock
-    private IdempotencyKeyService idempotencyKeyService;
-
-    @Mock
     private TransactionRepository transactionRepository;
 
     @Mock
@@ -62,18 +46,8 @@ public class TransactionServiceImpTest {
     @Mock
     private CurrentUserService currentUserService;
 
-    @Mock
-    private DepositService depositService;
-
-    @Mock
-    private WithdrawalService withdrawalService;
-
-    @Mock
-    private TransferService transferService;
-
     @InjectMocks
     private TransactionServiceImp transactionService;
-
 
     @Test
     @DisplayName("Should retrieve transactions for wallet")
@@ -348,9 +322,6 @@ public class TransactionServiceImpTest {
                         any(Pageable.class)
                 );
     }
-
-
-
 
     private User createUser(
             String fullName,

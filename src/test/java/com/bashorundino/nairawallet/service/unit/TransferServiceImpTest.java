@@ -15,9 +15,7 @@ import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.service.IdempotencyKeyService;
 import com.bashorundino.nairawallet.service.LedgerEntryService;
 import com.bashorundino.nairawallet.service.WalletService;
-import com.bashorundino.nairawallet.service.transaction.DepositServiceImp;
 import com.bashorundino.nairawallet.service.transaction.TransactionReferenceGenerator;
-import com.bashorundino.nairawallet.service.transaction.TransferService;
 import com.bashorundino.nairawallet.service.transaction.TransferServiceImp;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,11 +34,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.anyString;
 
 @ExtendWith(MockitoExtension.class)
 public class TransferServiceImpTest {

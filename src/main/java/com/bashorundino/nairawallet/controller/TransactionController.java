@@ -10,7 +10,7 @@ import com.bashorundino.nairawallet.dto.request.DepositRequest;
 import com.bashorundino.nairawallet.dto.request.TransferRequest;
 import com.bashorundino.nairawallet.dto.request.WithdrawRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
-import com.bashorundino.nairawallet.service.TransactionService;
+import com.bashorundino.nairawallet.service.transaction.TransactionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

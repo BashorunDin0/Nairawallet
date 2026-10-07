@@ -8,7 +8,7 @@ import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.repository.WalletRepository;
 import com.bashorundino.nairawallet.service.LedgerEntryService;
-import com.bashorundino.nairawallet.service.TransactionService;
+import com.bashorundino.nairawallet.service.transaction.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -47,10 +47,9 @@ public class TransactionAtomicityIntegrationTest {
 
     void shouldRollbackEntireDepositWhenLedgerCreationFails(){
 
-        User user = User.create(
+        User user = createUser(
                 "Atomic User",
                 "atomicity@test.com",
-                "123456789",
                 "080"
         );
 

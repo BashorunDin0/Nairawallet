@@ -1,6 +1,5 @@
 package com.bashorundino.nairawallet.service.unit;
 
-
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
 import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
@@ -24,7 +23,6 @@ public class TransactionMapperTest {
     void shouldMapTransferAsOutgoingForSender() {
 
 //    Arrange
-
         Long senderWalletId = 1L;
         Long receiverWalletId = 2L;
 
@@ -33,7 +31,6 @@ public class TransactionMapperTest {
                 "sendermapper",
                 "080"
         );
-
         User receiver = createUser(
                 "Mapper receiver" + UUID.randomUUID(),
                 "receivermapper",

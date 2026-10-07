@@ -11,17 +11,19 @@ import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.enums.LedgerEntryType;
 import com.bashorundino.nairawallet.enums.TransactionStatus;
+import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
 import com.bashorundino.nairawallet.repository.LedgerEntryRepository;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.repository.WalletRepository;
-import com.bashorundino.nairawallet.service.TransactionService;
+import com.bashorundino.nairawallet.service.transaction.TransactionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -595,6 +597,103 @@ public class TransactionServiceImpIntegrationTest {
 
         } finally {
             SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void shouldProcessOnlyOneConcurrentDepositForSameIdempotencyKey()
+            throws Exception {
+
+        // Arrange
+        User user = createUser(
+                "Concurrent Deposit User",
+                "concurrent-deposit-",
+                "080"
+        );
+
+        Wallet wallet = Wallet.createFor(user);
+
+        userRepository.save(user);
+
+        Long walletId = wallet.getId();
+
+        String idempotencyKey = "CONCURRENT-DEPOSIT-" + UUID.randomUUID();
+
+        DepositRequest request = new DepositRequest(
+                walletId,
+                new BigDecimal("500.00")
+        );
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        Callable<String> task = () -> {
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(
+                            user.getEmail(),
+                            null,
+                            Collections.emptyList()
+                    )
+            );
+
+            try {
+                startLatch.await();
+
+                transactionService.deposit(request, idempotencyKey);
+                return "Success";
+            } catch (DuplicateTransactionException ex) {
+                return "Duplicate";
+            }
+        };
+
+        try {
+            // Act
+            Future<String> firstResult = executor.submit(task);
+            Future<String> secondResult = executor.submit(task);
+
+            // Start both requests at approximately the same time
+            startLatch.countDown();
+
+            String result1 = firstResult.get(10, TimeUnit.SECONDS);
+            String result2 = secondResult.get(10, TimeUnit.SECONDS);
+
+            // Assert: exactly one request succeeds
+            assertTrue(
+                    (result1.equals("Success") && result2.equals("Duplicate"))
+                            || (result1.equals("Duplicate") && result2.equals("Success"))
+            );
+
+            // Assert: financial operation executed only once
+            Wallet updatedWallet = walletRepository.findById(walletId)
+                    .orElseThrow();
+
+            assertEquals(
+                    new BigDecimal("500.00"),
+                    updatedWallet.getBalance()
+            );
+
+            // Assert: exactly one transaction was created
+            long transactionCount =
+                    transactionRepository
+                            .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
+                                    walletId,
+                                    walletId,
+                                    Pageable.unpaged()
+                            )
+                            .getTotalElements();
+
+            assertEquals(1, transactionCount);
+
+            // Assert: exactly one ledger entry was created
+            assertEquals(
+                    1,
+                    ledgerEntryRepository
+                            .findByWalletIdOrderByCreatedAtDesc(walletId)
+                            .size()
+            );
+
+        } finally {
+            executor.shutdown();
         }
     }
 

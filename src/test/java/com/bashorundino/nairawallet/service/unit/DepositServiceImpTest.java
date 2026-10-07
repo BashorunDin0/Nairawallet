@@ -63,7 +63,6 @@ public class DepositServiceImpTest {
     @InjectMocks
     private DepositServiceImp depositService;
 
-
     @Test
     @DisplayName("Deposit Money Successfully")
     void shouldDepositSuccessfully() {
@@ -265,7 +264,6 @@ public class DepositServiceImpTest {
         verify(walletService, never()).findById(walletId);
     }
 
-
     @Test
     @DisplayName("Should save idempotency key after successful deposit")
     void shouldSaveIdempotencyKeyAfterSuccessfulDeposit() {
@@ -318,8 +316,6 @@ public class DepositServiceImpTest {
                 wallet.getBalance()
         );
     }
-
-
 
     private User createUser(
             String fullName,
