@@ -11,6 +11,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -119,7 +120,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAuthenticationException(
             AuthenticationException ex
             , HttpServletRequest request
-    ){
+    ) {
         ErrorResponse response = new ErrorResponse(
                 Instant.now(),
                 HttpStatus.UNAUTHORIZED.value(),
@@ -174,7 +175,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(
-            Exception ex, HttpServletRequest request){
+            Exception ex, HttpServletRequest request) {
 
         log.error(
                 "unexpected error while processing request: {}",

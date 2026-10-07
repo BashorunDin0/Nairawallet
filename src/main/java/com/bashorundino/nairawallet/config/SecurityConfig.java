@@ -27,13 +27,13 @@ public class SecurityConfig {
     private final CustomUserDetailsService customUserDetailsService;
 
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
 
-        return new  BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(){
+    public AuthenticationProvider authenticationProvider() {
 
         DaoAuthenticationProvider provider =
                 new DaoAuthenticationProvider(customUserDetailsService);
@@ -45,7 +45,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration) throws Exception{
+            AuthenticationConfiguration configuration) throws Exception {
 
         return configuration.getAuthenticationManager();
     }
@@ -54,7 +54,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter)
-            throws Exception{
+            throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth

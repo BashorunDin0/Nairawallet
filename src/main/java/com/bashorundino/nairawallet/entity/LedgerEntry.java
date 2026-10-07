@@ -75,7 +75,7 @@ public class LedgerEntry {
             String narration,
             Wallet wallet,
             Transaction transaction
-    ){
+    ) {
         Objects.requireNonNull(amount, "ledger amount cannot be null");
 
         Objects.requireNonNull(balanceBefore, "balance before cannot be null");
@@ -88,31 +88,31 @@ public class LedgerEntry {
 
         Objects.requireNonNull(transaction, "transaction cannot be null");
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0){
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
                     "ledger amount must be greater than zero"
             );
         }
 
-        if (balanceBefore.compareTo(BigDecimal.ZERO) < 0){
+        if (balanceBefore.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(
                     "balance before cannot be negative"
             );
         }
 
-        if (balanceAfter.compareTo(BigDecimal.ZERO) < 0){
+        if (balanceAfter.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(
                     "balance after cannot be negative"
             );
         }
 
-        if (narration == null || narration.isBlank()){
+        if (narration == null || narration.isBlank()) {
             throw new IllegalArgumentException(
                     "ledger narration can not be blank"
             );
         }
 
-        if (narration.length() > 255){
+        if (narration.length() > 255) {
             throw new IllegalArgumentException(
                     "ledger narration cannot exceed 255 characters"
             );
@@ -143,17 +143,17 @@ public class LedgerEntry {
             BigDecimal balanceBefore,
             BigDecimal balanceAfter,
             LedgerEntryType entryType
-    ){
+    ) {
 
         BigDecimal expectedBalance;
 
-        if (entryType == LedgerEntryType.CREDIT){
-            expectedBalance =balanceBefore.add(amount);
+        if (entryType == LedgerEntryType.CREDIT) {
+            expectedBalance = balanceBefore.add(amount);
         } else {
             expectedBalance = balanceBefore.subtract(amount);
         }
 
-        if (expectedBalance.compareTo(balanceAfter) != 0){
+        if (expectedBalance.compareTo(balanceAfter) != 0) {
             throw new IllegalArgumentException(
                     "ledger balance transition is invalid "
             );

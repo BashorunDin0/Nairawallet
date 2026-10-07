@@ -47,7 +47,8 @@ public class TransactionServiceImp implements TransactionService {
                 request.walletId(), request.amount()
         );
         idempotencyKeyService.claim(idempotencyKey);
-        Wallet wallet = walletService.findById(request.walletId());
+        Wallet wallet =
+                walletService.findByIdForCurrentUser(request.walletId());
 
         BigDecimal balanceBefore = wallet.getBalance();
         wallet.credit(request.amount());
@@ -85,7 +86,8 @@ public class TransactionServiceImp implements TransactionService {
     @Transactional
     public TransactionResponse withdrawal(WithdrawRequest request, String idempotencyKey) {
         idempotencyKeyService.claim(idempotencyKey);
-        Wallet wallet = walletService.findById(request.walletId());
+        Wallet wallet =
+                walletService.findByIdForCurrentUser(request.walletId());
 
         BigDecimal balanceBefore = wallet.getBalance();
         wallet.debit(request.amount());
@@ -126,7 +128,7 @@ public class TransactionServiceImp implements TransactionService {
         Long receiverId = request.receiverWalletId();
 
 //      prevent self transfer before acquiring database lock
-        if (senderId.equals(receiverId)){
+        if (senderId.equals(receiverId)) {
             throw new IllegalTransactionStateException(
                     "sender and receiver wallets must be different"
             );
@@ -158,11 +160,16 @@ public class TransactionServiceImp implements TransactionService {
 
         Wallet senderWallet =
                 senderId.equals(firstWallet.getId())
-                ? firstWallet : secondWallet;
+                        ? firstWallet : secondWallet;
 
         Wallet receiverWallet =
                 receiverId.equals(firstWallet.getId())
-                ? firstWallet : secondWallet;
+                        ? firstWallet : secondWallet;
+
+//        Authorization happens after we identify
+//        the already-locked sender wallet.
+
+        walletService.verifyOwnership(senderWallet);
 
         BigDecimal senderBalanceBefore = senderWallet.getBalance();
         BigDecimal receiverBalanceBefore = receiverWallet.getBalance();
@@ -222,7 +229,7 @@ public class TransactionServiceImp implements TransactionService {
 
         String currentUserEmail = currentUserService.getCurrentUserEmail();
 
-        if (!wallet.getUser().getEmail().equals(currentUserEmail)){
+        if (!wallet.getUser().getEmail().equals(currentUserEmail)) {
             throw new AccessDeniedException(
                     "You are not allowed to access this wallet"
             );

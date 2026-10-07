@@ -14,12 +14,12 @@ import java.time.Instant;
  */
 
 public record TransactionResponse(
-         String reference,
-         BigDecimal amount,
-         TransactionStatus status,
-         TransactionType type,
-         String narration,
-         Instant createdAt,
-         TransactionDirection direction
+        String reference,
+        BigDecimal amount,
+        TransactionStatus status,
+        TransactionType type,
+        String narration,
+        Instant createdAt,
+        TransactionDirection direction
 ) {
 }

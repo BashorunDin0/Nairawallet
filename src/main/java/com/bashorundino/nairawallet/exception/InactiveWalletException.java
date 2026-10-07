@@ -7,7 +7,7 @@ package com.bashorundino.nairawallet.exception;
  */
 
 public class InactiveWalletException extends RuntimeException {
-    public InactiveWalletException(String message){
+    public InactiveWalletException(String message) {
         super(message);
     }
 }

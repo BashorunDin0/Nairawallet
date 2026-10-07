@@ -5,11 +5,8 @@ import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.exception.WalletNotFoundException;
 import com.bashorundino.nairawallet.mapper.WalletMapper;
 import com.bashorundino.nairawallet.repository.WalletRepository;
-import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -26,6 +23,7 @@ public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
     private final WalletMapper walletMapper;
+    private final CurrentUserService currentUserService;
 
 
     @Override
@@ -35,15 +33,36 @@ public class WalletServiceImpl implements WalletService {
     }
 
     @Override
+    public Wallet findByIdForCurrentUser(Long walletId) {
+        Wallet wallet = findById(walletId);
+        verifyOwnership(wallet);
+        return wallet;
+    }
+
+    @Override
     public WalletResponse getWallet(Long walletId) {
 
-        Wallet wallet = findById(walletId);
+        Wallet wallet = findByIdForCurrentUser(walletId);
         return walletMapper.mapToResponse(wallet);
     }
 
-    public Wallet findByIdForUpdate(Long walletId){
+    public Wallet findByIdForUpdate(Long walletId) {
         return walletRepository.findByIdForUpdate(walletId).orElseThrow(() ->
                 new WalletNotFoundException("wallet not found " + walletId)
-                );
+        );
+    }
+
+    public void verifyOwnership(Wallet wallet) {
+
+        String currentUserEmail =
+                currentUserService.getCurrentUserEmail();
+
+        if (!wallet.getUser().getEmail()
+                .equalsIgnoreCase(currentUserEmail)) {
+
+            throw new AccessDeniedException(
+                    "You are not allowed to access this wallet"
+            );
+        }
     }
 }

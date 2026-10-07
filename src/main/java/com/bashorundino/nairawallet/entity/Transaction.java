@@ -75,7 +75,7 @@ public class Transaction {
             BigDecimal amount,
             String narration,
             Wallet destinationWallet
-    ){
+    ) {
         Transaction transaction = new Transaction();
 
         transaction.txReference = validateReference(txReference);
@@ -89,7 +89,7 @@ public class Transaction {
 
         transaction.status = TransactionStatus.PENDING;
 
-        return  transaction;
+        return transaction;
 
 
     }
@@ -99,7 +99,7 @@ public class Transaction {
             BigDecimal amount,
             String narration,
             Wallet sourceWallet
-    ){
+    ) {
         Transaction transaction = new Transaction();
 
         transaction.txReference = validateReference(txReference);
@@ -113,7 +113,7 @@ public class Transaction {
 
         transaction.status = TransactionStatus.PENDING;
 
-        return  transaction;
+        return transaction;
 
 
     }
@@ -124,7 +124,7 @@ public class Transaction {
             String narration,
             Wallet sourceWallet,
             Wallet destinationWallet
-    ){
+    ) {
         Transaction transaction = new Transaction();
 
         transaction.txReference = validateReference(txReference);
@@ -140,7 +140,7 @@ public class Transaction {
                 Objects.requireNonNull(destinationWallet,
                         "destination wallet cannot be null");
 
-        if (sourceWallet.equals(destinationWallet)){
+        if (sourceWallet.equals(destinationWallet)) {
             throw new IllegalArgumentException(
                     "source and destination wallets must be the same"
             );
@@ -148,30 +148,30 @@ public class Transaction {
 
         transaction.status = TransactionStatus.PENDING;
 
-        return  transaction;
+        return transaction;
 
 
     }
 
 
-    public void markSuccessful(){
+    public void markSuccessful() {
         ensureStatus(TransactionStatus.PENDING);
         this.status = TransactionStatus.SUCCESS;
     }
 
-    public void markFailed(){
+    public void markFailed() {
         ensureStatus(TransactionStatus.PENDING);
         this.status = TransactionStatus.FAILED;
     }
 
-    public void markedReversed(){
+    public void markedReversed() {
         ensureStatus(TransactionStatus.SUCCESS);
         this.status = TransactionStatus.REVERSED;
     }
 
-    public void ensureStatus(TransactionStatus expectedStatus){
-        if (status != expectedStatus){
-            throw  new IllegalStateException(
+    public void ensureStatus(TransactionStatus expectedStatus) {
+        if (status != expectedStatus) {
+            throw new IllegalStateException(
                     "Transaction must be "
                             + expectedStatus
                             + "but was "
@@ -181,32 +181,32 @@ public class Transaction {
 
 //    Validations
 
-    private static String validateReference(String txReference){
+    private static String validateReference(String txReference) {
         Objects.requireNonNull(txReference,
                 "Transaction reference cannot be null");
 
-        if (txReference.isBlank()){
+        if (txReference.isBlank()) {
             throw new IllegalArgumentException(
                     "Transaction reference cannot be blank"
             );
         }
 
-        if (txReference.length() > 100){
+        if (txReference.length() > 100) {
             throw new IllegalArgumentException(
                     "Transaction reference cannot exceed 100 characters"
             );
         }
-        return  txReference;
+        return txReference;
     }
 
-    private static BigDecimal validateAmount(BigDecimal amount){
-        if (amount.compareTo(BigDecimal.ZERO) < 0){
+    private static BigDecimal validateAmount(BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(
                     "Transaction amount must be greater than zero"
             );
         }
 
-        if (amount.scale() > 2){
+        if (amount.scale() > 2) {
             throw new IllegalArgumentException(
                     "Transaction amount cannot have more than 2 decimal places"
             );

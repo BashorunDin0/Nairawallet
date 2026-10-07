@@ -63,7 +63,7 @@ public class User {
             String email,
             String password,
             String phoneNumber
-    ){
+    ) {
         User user = new User();
 
         user.fullName = fullName;
@@ -75,7 +75,7 @@ public class User {
         return user;
     }
 
-    void assignWallet(Wallet wallet){
+    void assignWallet(Wallet wallet) {
 
         this.wallet = wallet;
     }

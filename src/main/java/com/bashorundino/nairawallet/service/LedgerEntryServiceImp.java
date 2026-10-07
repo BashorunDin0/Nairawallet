@@ -32,7 +32,7 @@ public class LedgerEntryServiceImp implements LedgerEntryService {
                             BigDecimal amount, BigDecimal balanceBefore,
                             BigDecimal balanceAfter, LedgerEntryType type,
                             String narration) {
-        LedgerEntry ledger =  LedgerEntry.create(
+        LedgerEntry ledger = LedgerEntry.create(
                 amount,
                 balanceBefore,
                 balanceAfter,
@@ -46,7 +46,7 @@ public class LedgerEntryServiceImp implements LedgerEntryService {
 
     }
 
-    public List<LedgerEntryResponse> getStatement(Long walletId){
+    public List<LedgerEntryResponse> getStatement(Long walletId) {
         List<LedgerEntry> entries =
                 ledgerRepository.findByWalletIdOrderByCreatedAtDesc(walletId);
         return entries.stream()

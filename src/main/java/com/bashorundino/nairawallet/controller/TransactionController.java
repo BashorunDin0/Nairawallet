@@ -29,11 +29,10 @@ public class TransactionController {
     private final TransactionService transactionService;
 
 
-
     @PostMapping("/deposit")
     public ResponseEntity<TransactionResponse> deposit(
             @Valid @RequestBody DepositRequest request,
-            @RequestHeader("Idempotency-key") String key){
+            @RequestHeader("Idempotency-key") String key) {
         TransactionResponse response = transactionService.deposit(request, key);
         return ResponseEntity.ok(response);
     }
@@ -41,7 +40,7 @@ public class TransactionController {
     @PostMapping("/withdraw")
     public ResponseEntity<TransactionResponse> withdraw(
             @Valid @RequestBody WithdrawRequest request,
-            @RequestHeader("Idempotency-key") String key){
+            @RequestHeader("Idempotency-key") String key) {
         TransactionResponse response = transactionService.withdrawal(request, key);
 
         return ResponseEntity.ok(response);
@@ -50,7 +49,7 @@ public class TransactionController {
     @PostMapping("/transfer")
     public ResponseEntity<TransactionResponse> transferFunds(
             @Valid @RequestBody TransferRequest request,
-            @RequestHeader("Idempotency-key") String key){
+            @RequestHeader("Idempotency-key") String key) {
         TransactionResponse response = transactionService.transfer(request, key);
 
         return ResponseEntity.ok(response);
@@ -59,15 +58,15 @@ public class TransactionController {
     @GetMapping("/wallet/{walletId}")
     public ResponseEntity<Page<TransactionResponse>> getTransactions(
             @PathVariable Long walletId,
-            @RequestParam(defaultValue= "0")
+            @RequestParam(defaultValue = "0")
             @Min(value = 0, message = "page number cannot be negative")
             int page,
             @RequestParam(defaultValue = "20")
             @Min(value = 1, message = "page size must be at least 1")
             @Max(value = 100, message = "page size cannot exceed 100")
-            int size){
+            int size) {
         Page<TransactionResponse> response = transactionService.getTransactions(
-                walletId, page, size );
+                walletId, page, size);
         return ResponseEntity.ok(response);
     }
 }

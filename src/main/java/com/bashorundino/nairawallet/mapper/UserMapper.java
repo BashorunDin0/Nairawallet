@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class UserMapper {
-    public UserResponse mapToResponse(User user){
+    public UserResponse mapToResponse(User user) {
         return new UserResponse(
                 user.getId(),
                 user.getFullName(),

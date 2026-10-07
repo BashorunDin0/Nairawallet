@@ -32,13 +32,13 @@ public class TransactionMapperTest {
                 "Mapper test" + UUID.randomUUID(),
                 "sendermapper",
                 "080"
-                );
+        );
 
         User receiver = createUser(
                 "Mapper receiver" + UUID.randomUUID(),
                 "receivermapper",
                 "080"
-                );
+        );
 
         Wallet senderWallet = Wallet.createFor(sender);
         Wallet receiverWallet = Wallet.createFor(receiver);
@@ -52,7 +52,7 @@ public class TransactionMapperTest {
                 "Wallet transfer",
                 senderWallet,
                 receiverWallet
-                );
+        );
 //  Act
         TransactionResponse response =
                 transactionMapper.mapToResponse(
@@ -77,13 +77,13 @@ public class TransactionMapperTest {
                 "Mapper test2" + UUID.randomUUID(),
                 "sendermapper2",
                 "080"
-                );
+        );
 
         User receiver = createUser(
                 "Mapper receiver2" + UUID.randomUUID(),
                 "receivermapper2",
                 "080"
-                );
+        );
 
         Wallet senderWallet = Wallet.createFor(sender);
         Wallet receiverWallet = Wallet.createFor(receiver);
@@ -92,12 +92,12 @@ public class TransactionMapperTest {
         ReflectionTestUtils.setField(receiverWallet, "id", receiverWalletId);
 
         Transaction transaction = Transaction.createTransfer(
-                        "TXN-TRANSFER_002",
-                        new BigDecimal("300.00"),
-                        "Wallet transfer",
-                        senderWallet,
-                        receiverWallet
-                );
+                "TXN-TRANSFER_002",
+                new BigDecimal("300.00"),
+                "Wallet transfer",
+                senderWallet,
+                receiverWallet
+        );
 //  Act
         TransactionResponse response =
                 transactionMapper.mapToResponse(
@@ -111,7 +111,7 @@ public class TransactionMapperTest {
     }
 
     @Test
-    void shouldMapDepositAsIncoming(){
+    void shouldMapDepositAsIncoming() {
 
 //        Arrange
         Long walletId = 1L;
@@ -120,18 +120,18 @@ public class TransactionMapperTest {
                 "Deposit User" + UUID.randomUUID(),
                 "user",
                 "080"
-                );
+        );
 
         Wallet wallet = Wallet.createFor(user);
 
         ReflectionTestUtils.setField(wallet, "id", walletId);
 
         Transaction transaction = Transaction.createDeposit(
-                        "TXN-DEPOSIT-001",
-                        new BigDecimal("500.00"),
-                        "Wallet Deposit",
-                        wallet
-                );
+                "TXN-DEPOSIT-001",
+                new BigDecimal("500.00"),
+                "Wallet Deposit",
+                wallet
+        );
 
 //        Act
         var response = transactionMapper.

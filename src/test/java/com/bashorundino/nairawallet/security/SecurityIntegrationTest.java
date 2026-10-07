@@ -106,11 +106,11 @@ public class SecurityIntegrationTest {
                         post("/api/v1/auth/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                    {
-                                        "email": "%s",
-                                        "password": "password123"
-                                    }
-                                    """.formatted(userAEmail))
+                                        {
+                                            "email": "%s",
+                                            "password": "password123"
+                                        }
+                                        """.formatted(userAEmail))
                 )
                 .andExpect(status().isOk())
                 .andReturn()

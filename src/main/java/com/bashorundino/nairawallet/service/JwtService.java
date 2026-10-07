@@ -17,7 +17,7 @@ public class JwtService {
 
     public JwtService(
             @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration}") long expiration){
+            @Value("${jwt.expiration}") long expiration) {
 
         this.secretKey = Keys.hmacShaKeyFor(
                 secret.getBytes(StandardCharsets.UTF_8)
@@ -26,7 +26,7 @@ public class JwtService {
 
     }
 
-    public String generateToken(String email){
+    public String generateToken(String email) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(email)

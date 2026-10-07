@@ -24,7 +24,7 @@ public class IdempotencyKeyServiceIntegrationTest {
     private IdempotencyKeyRepository repository;
 
     @Test
-    void shouldAllowOnlyOneConcurrentClaimForSameKey() throws Exception{
+    void shouldAllowOnlyOneConcurrentClaimForSameKey() throws Exception {
 
         String key = "CONCURRENT-" + UUID.randomUUID();
 
@@ -37,7 +37,7 @@ public class IdempotencyKeyServiceIntegrationTest {
             try {
                 idempotencyKeyService.claim(key);
                 return "Success";
-            } catch (DuplicateTransactionException ex){
+            } catch (DuplicateTransactionException ex) {
                 return "Duplicate";
             }
         };

@@ -30,8 +30,8 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void claim(String key){
-        if (key == null || key.isBlank()){
+    public void claim(String key) {
+        if (key == null || key.isBlank()) {
             throw new IllegalArgumentException(
                     "Idempotency-key header is required"
             );
@@ -46,7 +46,7 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
 
             repository.saveAndFlush(idempotencyKey);
 
-        } catch (DataIntegrityViolationException exception){
+        } catch (DataIntegrityViolationException exception) {
 
             log.warn(
                     "Duplicate idempotency detected: {}",

@@ -23,7 +23,7 @@ public class WalletController {
     private final WalletService walletService;
 
     @GetMapping("/{walletId}")
-    public ResponseEntity<WalletResponse> getWallet(@Valid @PathVariable Long walletId){
+    public ResponseEntity<WalletResponse> getWallet(@Valid @PathVariable Long walletId) {
         WalletResponse response = walletService.getWallet(walletId);
 
         return ResponseEntity.ok().body(response);

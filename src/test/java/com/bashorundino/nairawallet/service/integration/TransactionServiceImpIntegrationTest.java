@@ -13,12 +13,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.*;
 
@@ -49,7 +54,7 @@ public class TransactionServiceImpIntegrationTest {
                 "Integration-" + UUID.randomUUID(),
                 "integration-sender-",
                 "080"
-                );
+        );
 
         Wallet senderWallet = Wallet.createFor(sender);
         senderWallet.credit(new BigDecimal("1000.00"));
@@ -76,25 +81,44 @@ public class TransactionServiceImpIntegrationTest {
                 new BigDecimal("300.00"),
                 "Transfer"
         );
-//  Act & Assert
-        assertThrows(InactiveWalletException.class,
-                () -> transactionService.transfer(request,
-                        "Integration-transfer-001-" + UUID.randomUUID()));
+//        Authenticate as the sender
+        SecurityContext context =
+                SecurityContextHolder.createEmptyContext();
+
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        sender.getEmail(),
+                        null,
+                        Collections.emptyList()
+                );
+
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        try {
+            //  Act & Assert
+            assertThrows(InactiveWalletException.class,
+                    () -> transactionService.transfer(request,
+                            "Integration-transfer-001-" + UUID.randomUUID()));
 
 //        Reload wallets from database
-        Wallet senderAfter = walletRepository.
-                findById(senderWalletId).orElseThrow();
+            Wallet senderAfter = walletRepository.
+                    findById(senderWalletId).orElseThrow();
 
-        Wallet receiverAfter = walletRepository.
-                findById(receiverWalletId).orElseThrow();
+            Wallet receiverAfter = walletRepository.
+                    findById(receiverWalletId).orElseThrow();
 
 //  Verify and rollback
 
-        assertEquals(new BigDecimal("1000.00"),
-                senderAfter.getBalance());
+            assertEquals(new BigDecimal("1000.00"),
+                    senderAfter.getBalance());
 
-        assertEquals(new BigDecimal("500.00"),
-                receiverAfter.getBalance());
+            assertEquals(new BigDecimal("500.00"),
+                    receiverAfter.getBalance());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
 
     }
 
@@ -106,7 +130,7 @@ public class TransactionServiceImpIntegrationTest {
                 "Optimistic Lock",
                 "optimisticlock-",
                 "080"
-                );
+        );
 
         Wallet wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
@@ -163,14 +187,14 @@ public class TransactionServiceImpIntegrationTest {
         User userA = createUser(
                 "Concurrent User A" + UUID.randomUUID(),
                 "concurrent-a-",
-                        "080"
-                );
+                "080"
+        );
 
         User userB = createUser(
                 "Concurrent User B" + UUID.randomUUID(),
                 "concurrent-b-",
                 "070"
-                );
+        );
 
         Wallet walletA = Wallet.createFor(userA);
         Wallet walletB = Wallet.createFor(userB);
@@ -199,42 +223,76 @@ public class TransactionServiceImpIntegrationTest {
         );
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
-
         CountDownLatch startLatch = new CountDownLatch(1);
 
         try {
+
             Future<?> transfer1 = executor.submit(() -> {
+
+                SecurityContext context =
+                        SecurityContextHolder.createEmptyContext();
+
+                Authentication authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userA.getEmail(),
+                                null,
+                                Collections.emptyList()
+                        );
+
+                context.setAuthentication(authentication);
+                SecurityContextHolder.setContext(context);
+
                 try {
                     startLatch.await();
 
                     transactionService.transfer(
                             transferAtoB,
-                            "concurrent-" + UUID.randomUUID()
+                            "concurrent-a-" + UUID.randomUUID()
                     );
 
                 } catch (Exception e) {
                     throw new RuntimeException(e);
+
+                } finally {
+                    SecurityContextHolder.clearContext();
                 }
             });
 
             Future<?> transfer2 = executor.submit(() -> {
+
+                SecurityContext context =
+                        SecurityContextHolder.createEmptyContext();
+
+                Authentication authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userB.getEmail(),
+                                null,
+                                Collections.emptyList()
+                        );
+
+                context.setAuthentication(authentication);
+                SecurityContextHolder.setContext(context);
+
                 try {
                     startLatch.await();
 
                     transactionService.transfer(
                             transferBtoA,
-                            "concurrent-" + UUID.randomUUID()
+                            "concurrent-b-" + UUID.randomUUID()
                     );
 
                 } catch (Exception e) {
                     throw new RuntimeException(e);
+
+                } finally {
+                    SecurityContextHolder.clearContext();
                 }
             });
 
             // Start both transfers at approximately the same time
             startLatch.countDown();
 
-            // If the locking strategy is broken, this can hang.
+            // If locking is broken, this may hang or deadlock.
             transfer1.get(10, TimeUnit.SECONDS);
             transfer2.get(10, TimeUnit.SECONDS);
 
@@ -251,7 +309,8 @@ public class TransactionServiceImpIntegrationTest {
                 .findById(walletBId)
                 .orElseThrow();
 
-        // Both transfers were for the same amount in opposite directions.
+        // Both transfers were for the same amount in opposite directions,
+        // so the final balances should remain unchanged.
         assertEquals(
                 new BigDecimal("1000.00"),
                 walletAAfter.getBalance()
@@ -262,7 +321,6 @@ public class TransactionServiceImpIntegrationTest {
                 walletBAfter.getBalance()
         );
     }
-
 
 
     private User createUser(

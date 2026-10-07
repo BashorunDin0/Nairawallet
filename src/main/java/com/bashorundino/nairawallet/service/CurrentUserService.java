@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CurrentUserService {
-    public String getCurrentUserEmail(){
+    public String getCurrentUserEmail() {
 
         Authentication authentication =
                 SecurityContextHolder

@@ -13,9 +13,13 @@ import java.util.Optional;
 
 public interface WalletService {
 
-   Wallet findById(Long walletId);
+    Wallet findById(Long walletId);
 
-   WalletResponse getWallet(Long walletId);
+    WalletResponse getWallet(Long walletId);
 
-   Wallet findByIdForUpdate(Long walletId);
+    Wallet findByIdForUpdate(Long walletId);
+
+    Wallet findByIdForCurrentUser(Long walletId);
+
+    void verifyOwnership(Wallet wallet);
 }

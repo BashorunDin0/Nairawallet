@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class LedgerMapper {
-    public LedgerEntryResponse mapToResponse(LedgerEntry ledger){
+    public LedgerEntryResponse mapToResponse(LedgerEntry ledger) {
         return new LedgerEntryResponse(
                 ledger.getAmount(),
                 ledger.getEntryType(),

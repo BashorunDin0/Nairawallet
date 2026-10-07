@@ -34,11 +34,19 @@ amount NUMERIC(19,2) NOT NULL,
 status VARCHAR(255) NOT NULL ,
 narration VARCHAR(255) NOT NULL,
 created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-CONSTRAINT fk_wallet_transaction_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
+CONSTRAINT fk_wallet_transaction_source_wallet
+    FOREIGN KEY (source_wallet_id)
+        REFERENCES wallets(id)
+        ON DELETE CASCADE,
 
+CONSTRAINT fk_wallet_transaction_destination_wallet
+    FOREIGN KEY (destination_wallet_id)
+        REFERENCES wallets(id)
+        ON DELETE CASCADE
 );
-CREATE INDEX idx_reference on wallet_transactions(tx_reference);
-CREATE INDEX idx_wallet_transaction_wallet_id ON wallet_transactions(wallet_id);
+CREATE INDEX idx_wallet_transaction_source_wallet ON wallet_transactions(source_wallet_id);
+CREATE INDEX idx_wallet_transaction_destination_wallet ON wallet_transactions(destination_wallet_id);
+
 
 -- 4. Create LedgerEntry Table (Linked to Wallet and Transaction)
 CREATE TABLE ledger_entries(

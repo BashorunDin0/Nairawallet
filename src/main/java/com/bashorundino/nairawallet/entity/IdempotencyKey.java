@@ -36,20 +36,20 @@ public class IdempotencyKey {
     @Column(nullable = false)
     private Instant expireAt;
 
-    public static IdempotencyKey create(String idempotencyKey){
+    public static IdempotencyKey create(String idempotencyKey) {
         Objects.requireNonNull(idempotencyKey,
                 "idempotency key cannot be null"
         );
 
         String normalizedKey = idempotencyKey.trim();
 
-        if (normalizedKey.isBlank()){
+        if (normalizedKey.isBlank()) {
             throw new IllegalArgumentException(
                     "idempotency key cannot be blank"
             );
         }
 
-        if (normalizedKey.length() > 255){
+        if (normalizedKey.length() > 255) {
             throw new IllegalArgumentException(
                     "idempotency key cannot exceed 255 characters"
             );
@@ -65,7 +65,7 @@ public class IdempotencyKey {
         return key;
     }
 
-    public boolean isExpired(){
+    public boolean isExpired() {
         return Instant.now().isAfter(expireAt);
     }
 }

@@ -76,7 +76,7 @@ public class TransactionServiceImpTest {
                 "Ibrahim Olawale" + UUID.randomUUID(),
                 "ib@gmail.com",
                 "070"
-                );
+        );
 
         var wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
@@ -84,15 +84,15 @@ public class TransactionServiceImpTest {
         ReflectionTestUtils.setField(wallet, "id", walletId);
 
         var savedTransaction = Transaction.createDeposit(
-                        "TXN-ABC-001",
-                        new BigDecimal("500.00"),
-                        "Wallet Deposit",
-                        wallet
-                );
+                "TXN-ABC-001",
+                new BigDecimal("500.00"),
+                "Wallet Deposit",
+                wallet
+        );
 
         var expectedResponse = mock(TransactionResponse.class);
 
-        when(walletService.findById(walletId)).
+        when(walletService.findByIdForCurrentUser(walletId)).
                 thenReturn(wallet);
 
 //        when(transactionRepository.save(any(Transaction.class))).
@@ -100,7 +100,7 @@ public class TransactionServiceImpTest {
         when(transactionRepository.save(any(Transaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        when(transactionMapper.mapToResponse(any(Transaction.class),anyLong())).
+        when(transactionMapper.mapToResponse(any(Transaction.class), anyLong())).
                 thenReturn(expectedResponse);
 
 //        Act
@@ -113,7 +113,7 @@ public class TransactionServiceImpTest {
 
         verify(idempotencyKeyService).claim("Deposit-001");
 
-        verify(walletService).findById(walletId);
+        verify(walletService).findByIdForCurrentUser(walletId);
 
         ArgumentCaptor<Transaction> transactionCaptor =
                 ArgumentCaptor.forClass(Transaction.class);
@@ -157,7 +157,7 @@ public class TransactionServiceImpTest {
                 "Ibrahim Olawale" + UUID.randomUUID(),
                 "Ib@gmail.com",
                 "0801"
-                );
+        );
 
         Wallet wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
@@ -165,7 +165,7 @@ public class TransactionServiceImpTest {
 //        Make wallet inactive
         wallet.deactivate();
 
-        when(walletService.findById(walletId)).
+        when(walletService.findByIdForCurrentUser(walletId)).
                 thenReturn(wallet);
 
 //        Act & Assert
@@ -197,7 +197,7 @@ public class TransactionServiceImpTest {
                 "Idris Babatunde" + UUID.randomUUID(),
                 "idris@gmail.com",
                 "070"
-                );
+        );
 
         var wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
@@ -206,7 +206,7 @@ public class TransactionServiceImpTest {
 
         var expectedResponse = mock(TransactionResponse.class);
 
-        when(walletService.findById(walletId)).
+        when(walletService.findByIdForCurrentUser(walletId)).
                 thenReturn(wallet);
 
         when(transactionRepository.save(any(Transaction.class)))
@@ -227,7 +227,7 @@ public class TransactionServiceImpTest {
 
         verify(idempotencyKeyService).claim("Withdrawal-001");
 
-        verify(walletService).findById(walletId);
+        verify(walletService).findByIdForCurrentUser(walletId);
 
         ArgumentCaptor<Transaction> transactionCaptor =
                 ArgumentCaptor.forClass(Transaction.class);
@@ -239,7 +239,7 @@ public class TransactionServiceImpTest {
                 transactionCaptor.getAllValues();
         Transaction finalTransaction =
                 savedTransactions.get(savedTransactions.size() - 1);
-        assertEquals( TransactionStatus.SUCCESS, finalTransaction.getStatus());
+        assertEquals(TransactionStatus.SUCCESS, finalTransaction.getStatus());
 
         verify(ledgerEntryService).createEntry(
                 eq(wallet),
@@ -269,12 +269,12 @@ public class TransactionServiceImpTest {
                 "Ibrahim Olawale" + UUID.randomUUID(),
                 "ibrahim@gmail.com",
                 "070"
-                );
+        );
 
         var wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
 
-        when(walletService.findById(walletId))
+        when(walletService.findByIdForCurrentUser(walletId))
                 .thenReturn(wallet);
 
 //    Act & Assert
@@ -325,13 +325,13 @@ public class TransactionServiceImpTest {
                 "Ibrahim Olawale" + UUID.randomUUID(),
                 "ibrahim@gmail.com",
                 "0801"
-                );
+        );
 
         var receiver = createUser(
                 "Idris Tunde" + UUID.randomUUID(),
                 "idris@gmail.com",
                 "0801"
-                );
+        );
 
         var senderWallet = Wallet.createFor(sender);
         senderWallet.credit(new BigDecimal("1000.00"));
@@ -396,7 +396,8 @@ public class TransactionServiceImpTest {
         List<Transaction> savedTransactions =
                 transactionCaptor.getAllValues();
         Transaction finalTransaction =
-                savedTransactions.get(savedTransactions.size() - 1); assertEquals( TransactionStatus.SUCCESS, finalTransaction.getStatus() );
+                savedTransactions.get(savedTransactions.size() - 1);
+        assertEquals(TransactionStatus.SUCCESS, finalTransaction.getStatus());
 
 //    Verify sender ledger entry
         verify(ledgerEntryService).createEntry(
@@ -442,7 +443,7 @@ public class TransactionServiceImpTest {
                 "Ibrahim Olawale" + UUID.randomUUID(),
                 "ibrahim@gmail.com",
                 "0801"
-                );
+        );
 
         var wallet = Wallet.createFor(user);
         wallet.credit(new BigDecimal("1000.00"));
@@ -502,13 +503,13 @@ public class TransactionServiceImpTest {
                 "Ibrahim Sender" + UUID.randomUUID(),
                 "sender-insufficient@gmail.com" + UUID.randomUUID(),
                 "0801"
-                );
+        );
 
         User receiverUser = createUser(
                 "Receiver User" + UUID.randomUUID(),
                 "receiver-insufficient@gmail.com",
                 "0801"
-                );
+        );
 
         var senderWallet = Wallet.createFor(senderUser);
         senderWallet.credit(new BigDecimal("1000.00"));
@@ -589,13 +590,13 @@ public class TransactionServiceImpTest {
                 "Ibrahim Olawale" + UUID.randomUUID(),
                 "ib@gmail.com",
                 "08012345686"
-                );
+        );
 
         User receiver = createUser(
                 "Idris Tunde" + UUID.randomUUID(),
                 "idris@gmail.com",
                 "0801"
-                );
+        );
 
         var senderWallet = Wallet.createFor(sender);
         senderWallet.credit(new BigDecimal("1000.00"));
@@ -677,13 +678,13 @@ public class TransactionServiceImpTest {
                 "Active Sender" + UUID.randomUUID(),
                 "active-sender-2@gmail.com",
                 "0801"
-                );
+        );
 
         User receiver = createUser(
                 "Inactive Receiver" + UUID.randomUUID(),
                 "inactive-receiver-2@gmail.com",
                 "080"
-                );
+        );
 
         var senderWallet = Wallet.createFor(sender);
         senderWallet.credit(new BigDecimal("1000.00"));
@@ -737,13 +738,13 @@ public class TransactionServiceImpTest {
                 "Sender User" + UUID.randomUUID(),
                 "history-sender",
                 "0801"
-                );
+        );
 
         User receiver = createUser(
                 "Receiver User" + UUID.randomUUID(),
                 "history-receiver",
                 "0801"
-                );
+        );
 
         Wallet senderWallet = Wallet.createFor(sender);
         Wallet receiverWallet = Wallet.createFor(receiver);
@@ -755,12 +756,12 @@ public class TransactionServiceImpTest {
                 receiverWallet, "id", walletId);
 
         Transaction transaction = Transaction.createTransfer(
-                        "TXN-HISTORY-001",
-                        new BigDecimal("300.00"),
-                        "Wallet Transfer",
-                        senderWallet,
+                "TXN-HISTORY-001",
+                new BigDecimal("300.00"),
+                "Wallet Transfer",
+                senderWallet,
                 receiverWallet
-                );
+        );
 
         Page<Transaction> transactionPage =
                 new PageImpl<>(List.of(transaction));
@@ -825,7 +826,7 @@ public class TransactionServiceImpTest {
                 "History User",
                 "history-user",
                 "080"
-                );
+        );
 
         when(wallet.getUser())
                 .thenReturn(user);
@@ -912,7 +913,7 @@ public class TransactionServiceImpTest {
                 "pager nation",
                 "pagination-user",
                 "080"
-                );
+        );
 
         when(wallet.getUser())
                 .thenReturn(user);
@@ -970,7 +971,7 @@ public class TransactionServiceImpTest {
                 "Idempotency User" + UUID.randomUUID(),
                 "idempotency",
                 "080"
-                );
+        );
 
         Wallet wallet = Wallet.createFor(user);
         ReflectionTestUtils.setField(wallet, "id", walletId);
@@ -1021,12 +1022,12 @@ public class TransactionServiceImpTest {
                 "Idempotency Success User" + UUID.randomUUID(),
                 "idempotency-success-",
                 "080"
-                );
+        );
 
         Wallet wallet = Wallet.createFor(user);
         ReflectionTestUtils.setField(wallet, "id", walletId);
 
-        when(walletService.findById(walletId))
+        when(walletService.findByIdForCurrentUser(walletId))
                 .thenReturn(wallet);
 
         DepositRequest request = new DepositRequest(
@@ -1035,11 +1036,11 @@ public class TransactionServiceImpTest {
         );
 
         Transaction transaction = Transaction.createDeposit(
-                        "TXN-IDEMP-001",
-                        new BigDecimal("500.00"),
-                        "Wallet Deposit",
-                        wallet
-                );
+                "TXN-IDEMP-001",
+                new BigDecimal("500.00"),
+                "Wallet Deposit",
+                wallet
+        );
 
         when(transactionRepository.save(any(Transaction.class)))
                 .thenReturn(transaction);
@@ -1071,7 +1072,7 @@ public class TransactionServiceImpTest {
                 "Wallet Owner" + UUID.randomUUID(),
                 "owner@gmail.com",
                 "080"
-                );
+        );
 
         Wallet wallet = Wallet.createFor(walletOwner);
 
@@ -1101,6 +1102,106 @@ public class TransactionServiceImpTest {
                         any(Pageable.class)
                 );
     }
+
+
+    @Test
+    @DisplayName("Should reject deposit when wallet does not belong to current user")
+    void shouldRejectDepositForWalletOwnedByAnotherUser() {
+
+        when(walletService.findByIdForCurrentUser(1L))
+                .thenThrow(new AccessDeniedException(
+                        "You are not allowed to access this wallet"
+                ));
+
+        DepositRequest request = new DepositRequest(
+                1L,
+                new BigDecimal("500.00")
+        );
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> transactionService.deposit(
+                        request,
+                        "deposit-auth-test"
+                )
+        );
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should reject withdrawal when wallet does not belong to current user")
+    void shouldRejectWithdrawalForWalletOwnedByAnotherUser() {
+
+        when(walletService.findByIdForCurrentUser(1L))
+                .thenThrow(new AccessDeniedException(
+                        "You are not allowed to access this wallet"
+                ));
+
+        WithdrawRequest request = new WithdrawRequest(
+                1L,
+                new BigDecimal("500.00")
+        );
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> transactionService.withdrawal(
+                        request,
+                        "withdraw-auth-test"
+                )
+        );
+
+        verify(transactionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should reject transfer when sender wallet does not belong to current user")
+    void shouldRejectTransferFromWalletOwnedByAnotherUser() {
+
+        Wallet senderWallet = mock(Wallet.class);
+        Wallet receiverWallet = mock(Wallet.class);
+
+        // The service uses wallet IDs to determine
+        // which locked wallet is the sender.
+        when(senderWallet.getId()).thenReturn(1L);
+
+        when(walletService.findByIdForUpdate(1L))
+                .thenReturn(senderWallet);
+
+        when(walletService.findByIdForUpdate(2L))
+                .thenReturn(receiverWallet);
+
+        doThrow(new AccessDeniedException(
+                "You are not allowed to access this wallet"
+        ))
+                .when(walletService)
+                .verifyOwnership(senderWallet);
+
+        TransferRequest request = new TransferRequest(
+                1L,
+                2L,
+                new BigDecimal("100.00"),
+                "Unauthorized transfer"
+        );
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> transactionService.transfer(
+                        request,
+                        "transfer-auth-test"
+                )
+        );
+
+        verify(walletService).findByIdForUpdate(1L);
+        verify(walletService).findByIdForUpdate(2L);
+        verify(walletService).verifyOwnership(senderWallet);
+
+        verify(senderWallet, never()).debit(any());
+        verify(receiverWallet, never()).credit(any());
+
+        verify(transactionRepository, never()).save(any());
+    }
+
 
     private User createUser(
             String fullName,

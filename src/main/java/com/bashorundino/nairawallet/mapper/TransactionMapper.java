@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class TransactionMapper {
     public TransactionResponse mapToResponse(
             Transaction transaction,
-            Long walletId){
+            Long walletId) {
 
         TransactionDirection direction = determineDirection(transaction, walletId);
 
@@ -34,11 +34,11 @@ public class TransactionMapper {
             Transaction transaction,
             Long walletId) {
         if (transaction.getDestinationWallet() != null &&
-                transaction.getDestinationWallet().getId().equals(walletId)){
+                transaction.getDestinationWallet().getId().equals(walletId)) {
             return TransactionDirection.INCOMING;
         }
         if (transaction.getSourceWallet() != null &&
-                transaction.getSourceWallet().getId().equals(walletId)){
+                transaction.getSourceWallet().getId().equals(walletId)) {
             return TransactionDirection.OUTGOING;
         }
         throw new IllegalArgumentException("Wallet is not associated with transaction");

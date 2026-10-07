@@ -44,7 +44,7 @@ public class Wallet {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    public static Wallet createFor(User user){
+    public static Wallet createFor(User user) {
 
         Objects.requireNonNull(user, "user cannot be null");
 
@@ -54,38 +54,38 @@ public class Wallet {
         return wallet;
     }
 
-    public void credit(BigDecimal amount){
+    public void credit(BigDecimal amount) {
         validateAmount(amount);
         ensureActive();
         this.balance = this.balance.add(amount);
     }
 
-    public void debit(BigDecimal amount){
+    public void debit(BigDecimal amount) {
         validateAmount(amount);
         ensureActive();
-        if (this.balance.compareTo(amount) < 0){
-            throw new  InsufficientFundsException(
+        if (this.balance.compareTo(amount) < 0) {
+            throw new InsufficientFundsException(
                     "Insufficient funds for wallet " + this.id);
         }
         this.balance = this.balance.subtract(amount);
 
     }
 
-    public void deactivate(){
+    public void deactivate() {
 
         this.status = WalletStatus.INACTIVE;
     }
 
-    private void validateAmount(BigDecimal amount){
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0){
+    private void validateAmount(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
                     "Amount must be greater zero"
             );
         }
     }
 
-    private void ensureActive(){
-        if (this.status != WalletStatus.ACTIVE){
+    private void ensureActive() {
+        if (this.status != WalletStatus.ACTIVE) {
             throw new InactiveWalletException(
                     "Wallet is not active"
             );
