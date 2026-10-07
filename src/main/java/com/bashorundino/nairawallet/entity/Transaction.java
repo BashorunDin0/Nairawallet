@@ -142,7 +142,7 @@ public class Transaction {
 
         if (sourceWallet.equals(destinationWallet)) {
             throw new IllegalArgumentException(
-                    "source and destination wallets must be the same"
+                    "source and destination wallets must be different"
             );
         }
 
@@ -200,7 +200,7 @@ public class Transaction {
     }
 
     private static BigDecimal validateAmount(BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) < 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
                     "Transaction amount must be greater than zero"
             );

@@ -1,10 +1,19 @@
 package com.bashorundino.nairawallet.service.integration;
 
 
+import com.bashorundino.nairawallet.dto.request.DepositRequest;
 import com.bashorundino.nairawallet.dto.request.TransferRequest;
+import com.bashorundino.nairawallet.dto.request.WithdrawRequest;
+import com.bashorundino.nairawallet.dto.response.TransactionResponse;
+import com.bashorundino.nairawallet.entity.LedgerEntry;
+import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.entity.Wallet;
+import com.bashorundino.nairawallet.enums.LedgerEntryType;
+import com.bashorundino.nairawallet.enums.TransactionStatus;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
+import com.bashorundino.nairawallet.repository.LedgerEntryRepository;
+import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.repository.WalletRepository;
 import com.bashorundino.nairawallet.service.TransactionService;
@@ -24,11 +33,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -45,6 +54,12 @@ public class TransactionServiceImpIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    @Autowired
+    private LedgerEntryRepository ledgerEntryRepository;
 
     @Test
     void shouldRollbackTransferWhenReceiverIsInactive() {
@@ -323,6 +338,267 @@ public class TransactionServiceImpIntegrationTest {
     }
 
 
+    @Test
+    @DisplayName("Should create debit and credit ledger entries for successful transfer")
+    void shouldCreateLedgerEntriesForSuccessfulTransfer() {
+
+        // Arrange
+        User sender = createUser(
+                "Ledger Sender",
+                "ledger-sender-",
+                "080"
+        );
+
+        User receiver = createUser(
+                "Ledger Receiver",
+                "ledger-receiver-",
+                "070"
+        );
+
+        Wallet senderWallet = Wallet.createFor(sender);
+        Wallet receiverWallet = Wallet.createFor(receiver);
+
+        senderWallet.credit(new BigDecimal("1000.00"));
+        receiverWallet.credit(new BigDecimal("500.00"));
+
+        userRepository.saveAndFlush(sender);
+        userRepository.saveAndFlush(receiver);
+
+        Long senderWalletId = senderWallet.getId();
+        Long receiverWalletId = receiverWallet.getId();
+
+        TransferRequest request = new TransferRequest(
+                senderWalletId,
+                receiverWalletId,
+                new BigDecimal("300.00"),
+                "Ledger Transfer"
+        );
+
+        SecurityContext context =
+                SecurityContextHolder.createEmptyContext();
+
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        sender.getEmail(),
+                        null,
+                        Collections.emptyList()
+                );
+
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        try {
+            // Act
+            TransactionResponse response =
+                    transactionService.transfer(
+                            request,
+                            "ledger-transfer-" + UUID.randomUUID()
+                    );
+
+            // Retrieve the persisted transaction using its public reference
+            Transaction transaction =
+                    transactionRepository
+                            .findByTxReference(response.reference())
+                            .orElseThrow();
+
+            List<LedgerEntry> entries =
+                    ledgerEntryRepository
+                            .findByTransactionId(transaction.getId());
+
+            // Assert
+            assertEquals(2, entries.size());
+
+            assertTrue(entries.stream()
+                    .anyMatch(entry ->
+                            entry.getEntryType() == LedgerEntryType.DEBIT
+                                    && entry.getWallet().getId()
+                                    .equals(senderWalletId)
+                                    && entry.getAmount()
+                                    .compareTo(new BigDecimal("300.00")) == 0
+                    ));
+
+            assertTrue(entries.stream()
+                    .anyMatch(entry ->
+                            entry.getEntryType() == LedgerEntryType.CREDIT
+                                    && entry.getWallet().getId()
+                                    .equals(receiverWalletId)
+                                    && entry.getAmount()
+                                    .compareTo(new BigDecimal("300.00")) == 0
+                    ));
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("Should create credit ledger entry for successful deposit")
+    void shouldCreateCreditLedgerEntryForSuccessfulDeposit() {
+
+        User user = createUser(
+                "Deposit Ledger User",
+                "deposit-ledger-",
+                "080"
+        );
+
+        Wallet wallet = Wallet.createFor(user);
+
+        userRepository.saveAndFlush(user);
+
+        Long walletId = wallet.getId();
+
+        DepositRequest request = new DepositRequest(
+                walletId,
+                new BigDecimal("500.00")
+        );
+
+        SecurityContext context =
+                SecurityContextHolder.createEmptyContext();
+
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        user.getEmail(),
+                        null,
+                        Collections.emptyList()
+                );
+
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        try {
+            TransactionResponse response =
+                    transactionService.deposit(
+                            request,
+                            "deposit-ledger-" + UUID.randomUUID()
+                    );
+
+            Transaction transaction =
+                    transactionRepository
+                            .findByTxReference(response.reference())
+                            .orElseThrow();
+
+            List<LedgerEntry> entries =
+                    ledgerEntryRepository
+                            .findByTransactionId(transaction.getId());
+
+            assertEquals(1, entries.size());
+
+            LedgerEntry entry = entries.get(0);
+
+            assertEquals(LedgerEntryType.CREDIT, entry.getEntryType());
+            assertEquals(walletId, entry.getWallet().getId());
+
+            assertEquals(
+                    new BigDecimal("500.00"),
+                    entry.getAmount()
+            );
+
+            assertEquals(
+                    new BigDecimal("0.00"),
+                    entry.getBalanceBefore()
+            );
+
+            assertEquals(
+                    new BigDecimal("500.00"),
+                    entry.getBalanceAfter()
+            );
+
+            assertEquals(
+                    TransactionStatus.SUCCESS,
+                    transaction.getStatus()
+            );
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+
+    @Test
+    @DisplayName("Should create debit ledger entry for successful withdrawal")
+    void shouldCreateDebitLedgerEntryForSuccessfulWithdrawal() {
+
+        User user = createUser(
+                "Withdrawal Ledger User",
+                "withdrawal-ledger-",
+                "070"
+        );
+
+        Wallet wallet = Wallet.createFor(user);
+
+        wallet.credit(new BigDecimal("1000.00"));
+
+        userRepository.saveAndFlush(user);
+
+        Long walletId = wallet.getId();
+
+        WithdrawRequest request = new WithdrawRequest(
+                walletId,
+                new BigDecimal("300.00")
+        );
+
+        SecurityContext context =
+                SecurityContextHolder.createEmptyContext();
+
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        user.getEmail(),
+                        null,
+                        Collections.emptyList()
+                );
+
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+
+        try {
+            TransactionResponse response =
+                    transactionService.withdrawal(
+                            request,
+                            "withdrawal-ledger-" + UUID.randomUUID()
+                    );
+
+            Transaction transaction =
+                    transactionRepository
+                            .findByTxReference(response.reference())
+                            .orElseThrow();
+
+            List<LedgerEntry> entries =
+                    ledgerEntryRepository
+                            .findByTransactionId(transaction.getId());
+
+            assertEquals(1, entries.size());
+
+            LedgerEntry entry = entries.get(0);
+
+            assertEquals(LedgerEntryType.DEBIT, entry.getEntryType());
+            assertEquals(walletId, entry.getWallet().getId());
+
+            assertEquals(
+                    new BigDecimal("300.00"),
+                    entry.getAmount()
+            );
+
+            assertEquals(
+                    new BigDecimal("1000.00"),
+                    entry.getBalanceBefore()
+            );
+
+            assertEquals(
+                    new BigDecimal("700.00"),
+                    entry.getBalanceAfter()
+            );
+
+            assertEquals(
+                    TransactionStatus.SUCCESS,
+                    transaction.getStatus()
+            );
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+//  Helper create a user method
     private User createUser(
             String fullName,
             String emailPrefix,
