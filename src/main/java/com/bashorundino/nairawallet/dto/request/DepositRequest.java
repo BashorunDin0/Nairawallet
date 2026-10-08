@@ -6,15 +6,20 @@ package com.bashorundino.nairawallet.dto.request;
  * This project was developed as part of a Fintech MVP series.
  */
 
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
 public record DepositRequest(
-        @NotNull
+        @NotNull(message = "walletId is required")
+        @Positive(message = "walletId must be positive")
         Long walletId,
-        @Positive(message = "Amount must be greater zero")
+
+        @NotNull(message = "amount is required")
+        @Positive(message = "amount must be greater than zero")
+        @Digits(integer = 17, fraction = 2, message = "amount must have at most 2 decimal places")
         BigDecimal amount
 ) {
 }

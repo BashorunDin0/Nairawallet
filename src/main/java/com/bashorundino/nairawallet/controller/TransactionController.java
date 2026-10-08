@@ -14,6 +14,7 @@ import com.bashorundino.nairawallet.service.transaction.TransactionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -57,7 +58,7 @@ public class TransactionController {
 
     @GetMapping("/wallet/{walletId}")
     public ResponseEntity<Page<TransactionResponse>> getTransactions(
-            @PathVariable Long walletId,
+            @PathVariable @Positive(message = "walletId must be positive") Long walletId,
             @RequestParam(defaultValue = "0")
             @Min(value = 0, message = "page number cannot be negative")
             int page,

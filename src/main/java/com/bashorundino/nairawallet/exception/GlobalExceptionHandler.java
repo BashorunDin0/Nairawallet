@@ -2,6 +2,7 @@ package com.bashorundino.nairawallet.exception;
 
 import com.bashorundino.nairawallet.dto.response.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -9,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -173,6 +176,78 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(
+            ConstraintViolationException ex,
+            HttpServletRequest request) {
+
+        Map<String, String> errors = new HashMap<>();
+
+        ex.getConstraintViolations()
+                .forEach(violation ->
+                        errors.put(
+                                violation.getPropertyPath().toString(),
+                                violation.getMessage()
+                        )
+                );
+
+        ErrorResponse response = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation failed",
+                request.getRequestURI(),
+                errors
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorResponse> handleMethodValidationException(
+            HandlerMethodValidationException ex,
+            HttpServletRequest request) {
+
+        Map<String, String> errors = new HashMap<>();
+
+        ex.getParameterValidationResults()
+                .forEach(result ->
+                        result.getResolvableErrors()
+                                .forEach(error ->
+                                        errors.put(
+                                                result.getMethodParameter()
+                                                        .getParameterName(),
+                                                error.getDefaultMessage())));
+
+        ErrorResponse response = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation failed",
+                request.getRequestURI(),
+                errors
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ErrorResponse> handleMissingRequestHeader(
+            MissingRequestHeaderException ex,
+            HttpServletRequest request) {
+
+        ErrorResponse response = new ErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getHeaderName() + " header is required",
+                request.getRequestURI(),
+                null
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(
             Exception ex, HttpServletRequest request) {
@@ -192,8 +267,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(response);
     }
-
-
 }
 
 
