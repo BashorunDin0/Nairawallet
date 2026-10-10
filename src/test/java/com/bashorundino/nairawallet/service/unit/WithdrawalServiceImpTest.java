@@ -13,6 +13,7 @@ import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.service.IdempotencyKeyService;
 import com.bashorundino.nairawallet.service.LedgerEntryService;
 import com.bashorundino.nairawallet.service.WalletService;
+import com.bashorundino.nairawallet.service.transaction.TransactionLedgerValidator;
 import com.bashorundino.nairawallet.service.transaction.TransactionReferenceGenerator;
 import com.bashorundino.nairawallet.service.transaction.WithdrawalServiceImp;
 import org.junit.jupiter.api.DisplayName;
@@ -55,6 +56,9 @@ public class WithdrawalServiceImpTest {
 
     @Mock
     private TransactionReferenceGenerator referenceGenerator;
+
+    @Mock
+    private TransactionLedgerValidator transactionLedgerValidator;
 
     @InjectMocks
     private WithdrawalServiceImp withdrawalService;

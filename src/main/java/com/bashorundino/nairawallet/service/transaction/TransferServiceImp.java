@@ -7,7 +7,6 @@ import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.enums.LedgerEntryType;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import com.bashorundino.nairawallet.service.CurrentUserService;
 import com.bashorundino.nairawallet.service.IdempotencyKeyService;
 import com.bashorundino.nairawallet.service.LedgerEntryService;
 import com.bashorundino.nairawallet.service.WalletService;
@@ -27,11 +26,11 @@ public class TransferServiceImp implements TransferService {
     private final WalletService walletService;
     private final LedgerEntryService ledgerEntryService;
     private final IdempotencyKeyService idempotencyKeyService;
-    private final CurrentUserService currentUserService;
 
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
     private final TransactionReferenceGenerator referenceGenerator;
+    private final TransactionLedgerValidator transactionLedgerValidator;
 
     @Override
     @Transactional
@@ -48,6 +47,7 @@ public class TransferServiceImp implements TransferService {
                     "sender and receiver wallets must be different"
             );
         }
+
 
         /*
          * Always acquire wallet locks in ascending ID order
@@ -68,7 +68,7 @@ public class TransferServiceImp implements TransferService {
                 walletService.findByIdForUpdate(secondWalletId);
 
         /*
-         * Restore the business roles after locking.
+         * Restore the business rows after locking.
          *
          * The first wallet is not necessarily the sender.
          */
@@ -80,9 +80,6 @@ public class TransferServiceImp implements TransferService {
         Wallet receiverWallet =
                 receiverId.equals(firstWallet.getId())
                         ? firstWallet : secondWallet;
-
-//        Authorization happens after we identify
-//        the already-locked sender wallet.
 
         walletService.verifyOwnership(senderWallet);
 
@@ -127,6 +124,7 @@ public class TransferServiceImp implements TransferService {
                 "Wallet Transfer"
         );
 
+        transactionLedgerValidator.validate(transaction);
         transaction.markSuccessful();
         log.info("Transfer successful. reference: {}", transaction.getTxReference());
 

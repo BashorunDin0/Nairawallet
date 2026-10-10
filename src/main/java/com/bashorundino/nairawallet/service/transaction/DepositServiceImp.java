@@ -29,6 +29,8 @@ public class DepositServiceImp implements DepositService {
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
     private final TransactionReferenceGenerator referenceGenerator;
+    private final TransactionLedgerValidator transactionLedgerValidator;
+
 
 
     @Override
@@ -67,6 +69,7 @@ public class DepositServiceImp implements DepositService {
 
         );
 
+        transactionLedgerValidator.validate(transaction);
         transaction.markSuccessful();
 
         log.info("Deposit successful. reference = {}",

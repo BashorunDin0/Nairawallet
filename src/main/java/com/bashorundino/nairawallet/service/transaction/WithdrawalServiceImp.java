@@ -30,6 +30,7 @@ public class WithdrawalServiceImp implements WithdrawalService {
     private final TransactionRepository transactionRepository;
     private final TransactionMapper transactionMapper;
     private final TransactionReferenceGenerator referenceGenerator;
+    private final TransactionLedgerValidator transactionLedgerValidator;
 
 
     @Override
@@ -61,6 +62,8 @@ public class WithdrawalServiceImp implements WithdrawalService {
                 LedgerEntryType.DEBIT,
                 "Wallet Withdrawal"
         );
+
+        transactionLedgerValidator.validate(transaction);
         transaction.markSuccessful();
         log.info("Withdrawal successful. reference = {}",
                 transaction.getTxReference());

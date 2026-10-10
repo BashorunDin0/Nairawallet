@@ -47,14 +47,43 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
             DataIntegrityViolationException ex,
             HttpServletRequest request) {
-        ErrorResponse errorResponse = new ErrorResponse(
+
+        String sqlState = extractSqlState(ex);
+
+        HttpStatus status;
+        String message;
+
+        switch (sqlState) {
+            case "23505" -> {
+                status = HttpStatus.CONFLICT;
+                message = "Resource already exists";
+            }
+
+            case "23503" -> {
+                status = HttpStatus.BAD_REQUEST;
+                message = "Referenced resource does not exist";
+            }
+
+            case "23514" -> {
+                status = HttpStatus.BAD_REQUEST;
+                message = "Request violates a data integrity constraint";
+            }
+
+            default -> {
+                status = HttpStatus.INTERNAL_SERVER_ERROR;
+                message = "A database integrity error occurred";
+            }
+        }
+
+        ErrorResponse response = new ErrorResponse(
                 Instant.now(),
-                HttpStatus.CONFLICT.value(),
-                "Duplicate request detected",
+                status.value(),
+                message,
                 request.getRequestURI(),
                 null
         );
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+
+        return ResponseEntity.status(status).body(response);
     }
 
     @ExceptionHandler(InsufficientFundsException.class)
@@ -267,6 +296,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(response);
     }
-}
 
+
+
+
+
+    private String extractSqlState(DataIntegrityViolationException ex) {
+
+        Throwable cause = ex;
+
+        while (cause != null) {
+
+            if (cause instanceof java.sql.SQLException sqlException) {
+                return sqlException.getSQLState();
+            }
+
+            cause = cause.getCause();
+        }
+        return "UNKNOWN";
+    }
+}
 

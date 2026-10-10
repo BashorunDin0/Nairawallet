@@ -164,12 +164,12 @@ public class Transaction {
         this.status = TransactionStatus.FAILED;
     }
 
-    public void markedReversed() {
+    public void markReversed() {
         ensureStatus(TransactionStatus.SUCCESS);
         this.status = TransactionStatus.REVERSED;
     }
 
-    public void ensureStatus(TransactionStatus expectedStatus) {
+    private void ensureStatus(TransactionStatus expectedStatus) {
         if (status != expectedStatus) {
             throw new IllegalStateException(
                     "Transaction must be "
@@ -200,6 +200,9 @@ public class Transaction {
     }
 
     private static BigDecimal validateAmount(BigDecimal amount) {
+        Objects.requireNonNull(amount,
+                "Transaction amount cannot be null");
+
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException(
                     "Transaction amount must be greater than zero"

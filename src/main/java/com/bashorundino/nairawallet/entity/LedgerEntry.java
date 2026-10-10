@@ -94,6 +94,10 @@ public class LedgerEntry {
             );
         }
 
+        validateMoneyPrecision(amount, "Ledger amount");
+        validateMoneyPrecision(balanceBefore, "Balance before");
+        validateMoneyPrecision(balanceAfter, "Balance after");
+
         if (balanceBefore.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException(
                     "balance before cannot be negative"
@@ -156,6 +160,22 @@ public class LedgerEntry {
         if (expectedBalance.compareTo(balanceAfter) != 0) {
             throw new IllegalArgumentException(
                     "ledger balance transition is invalid "
+            );
+        }
+    }
+
+    private static void validateMoneyPrecision(
+            BigDecimal amount,
+            String fieldName
+    ){
+        if (amount.scale() > 2){
+            throw new IllegalArgumentException(
+                    fieldName + " cannot have more than 2 decimal places"
+            );
+        }
+        if (amount.precision() - amount.scale() > 17){
+            throw new IllegalArgumentException(
+                    fieldName + " exceeds the maximum supported amount"
             );
         }
     }
