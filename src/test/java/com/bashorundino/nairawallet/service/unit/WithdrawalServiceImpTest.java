@@ -6,20 +6,15 @@ import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.enums.LedgerEntryType;
-import com.bashorundino.nairawallet.enums.TransactionStatus;
 import com.bashorundino.nairawallet.exception.InsufficientFundsException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import com.bashorundino.nairawallet.service.IdempotencyKeyService;
-import com.bashorundino.nairawallet.service.LedgerEntryService;
-import com.bashorundino.nairawallet.service.WalletService;
-import com.bashorundino.nairawallet.service.transaction.TransactionLedgerValidator;
-import com.bashorundino.nairawallet.service.transaction.TransactionReferenceGenerator;
+import com.bashorundino.nairawallet.repository.UserRepository;
+import com.bashorundino.nairawallet.service.*;
 import com.bashorundino.nairawallet.service.transaction.WithdrawalServiceImp;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,14 +22,13 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.anyString;
 
 @ExtendWith(MockitoExtension.class)
 public class WithdrawalServiceImpTest {
@@ -46,125 +40,166 @@ public class WithdrawalServiceImpTest {
     private LedgerEntryService ledgerEntryService;
 
     @Mock
-    private IdempotencyKeyService idempotencyKeyService;
-
-    @Mock
     private TransactionRepository transactionRepository;
 
     @Mock
     private TransactionMapper transactionMapper;
 
     @Mock
-    private TransactionReferenceGenerator referenceGenerator;
-
-    @Mock
-    private TransactionLedgerValidator transactionLedgerValidator;
+    private WithdrawalTransactionProcessor withdrawalTransactionProcessor;
 
     @InjectMocks
     private WithdrawalServiceImp withdrawalService;
 
+    @Mock
+    private CurrentUserService currentUserService;
+
+    @Mock
+    private RequestFingerprintService requestFingerprintService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private IdempotencyKeyService idempotencyKeyService;
+
+
     @Test
     @DisplayName("Withdraw money successfully")
-    public void shouldWithdrawSuccessfully() {
-//        Arrange
-        Long walletId = 1L;
-        var request = new WithdrawRequest(walletId,
-                new BigDecimal("300.00"));
+    void shouldWithdrawSuccessfully() {
+        // Arrange
+        Long userId = 1L;
+        String email = "idris@gmail.com";
+        String requestHash = "b".repeat(64);
+        String idempotencyKey = "Withdrawal-001";
+
+        WithdrawRequest request = new WithdrawRequest(
+                1L,
+                new BigDecimal("300.00")
+        );
 
         User user = createUser(
-                "Idris Babatunde" + UUID.randomUUID(),
-                "idris@gmail.com",
+                "Idris Babatunde",
+                "idris",
                 "080"
         );
+        ReflectionTestUtils.setField(user, "id", userId);
 
-        var wallet = Wallet.createFor(user);
-        wallet.credit(new BigDecimal("1000.00"));
+        TransactionResponse expectedResponse = mock(TransactionResponse.class);
 
-        ReflectionTestUtils.setField(wallet, "id", walletId);
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        var expectedResponse = mock(TransactionResponse.class);
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
 
-        when(walletService.findByIdForCurrentUser(walletId)).
-                thenReturn(wallet);
-        when(referenceGenerator.generate())
-                .thenReturn("TXN-TEST-001");
+        when(requestFingerprintService.forWithdrawal(
+                request.walletId(),
+                request.amount()
+        )).thenReturn(requestHash);
 
-        when(transactionRepository.save(any(Transaction.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(withdrawalTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenReturn(expectedResponse);
 
-        when(transactionMapper.mapToResponse(any(Transaction.class), anyLong()))
-                .thenReturn(expectedResponse);
+        // Act
+        TransactionResponse response =
+                withdrawalService.withdrawal(request, idempotencyKey);
 
-//        Act
-        var response = withdrawalService.withdrawal(
-                request, "Withdrawal-001");
-
-//        Assert
-
-        assertEquals(new BigDecimal("700.00"), wallet.getBalance());
-
+        // Assert
         assertEquals(expectedResponse, response);
 
-        verify(idempotencyKeyService).claim("Withdrawal-001");
+        verify(currentUserService).getCurrentUserEmail();
+        verify(userRepository).findByEmail(email);
 
-        verify(walletService).findByIdForCurrentUser(walletId);
-
-        ArgumentCaptor<Transaction> transactionCaptor =
-                ArgumentCaptor.forClass(Transaction.class);
-
-        verify(transactionRepository)
-                .save(transactionCaptor.capture());
-
-        List<Transaction> savedTransactions =
-                transactionCaptor.getAllValues();
-        Transaction finalTransaction =
-                savedTransactions.get(savedTransactions.size() - 1);
-        assertEquals(TransactionStatus.SUCCESS, finalTransaction.getStatus());
-
-        verify(ledgerEntryService).createEntry(
-                eq(wallet),
-                eq(finalTransaction),
-                eq(new BigDecimal("300.00")),
-                eq(new BigDecimal("1000.00")),
-                eq(new BigDecimal("700.00")),
-                eq(LedgerEntryType.DEBIT),
-                eq("Wallet Withdrawal")
+        verify(requestFingerprintService).forWithdrawal(
+                request.walletId(),
+                request.amount()
         );
-        verify(transactionMapper).mapToResponse(
-                finalTransaction, walletId);
+
+        verify(withdrawalTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        );
+
+        verifyNoInteractions(idempotencyKeyService, transactionMapper);
     }
 
 
     @Test
     @DisplayName("Should reject withdrawal when wallet does not belong to current user")
     void shouldRejectWithdrawalForWalletOwnedByAnotherUser() {
+        // Arrange
+        Long walletId = 1L;
+        Long userId = 10L;
 
-        when(walletService.findByIdForCurrentUser(1L))
-                .thenThrow(new AccessDeniedException(
-                        "You are not allowed to access this wallet"
-                ));
+        String email = "ibrahim@gmail.com";
+        String idempotencyKey = "withdraw-auth-test";
+        String requestHash = "a".repeat(64);
 
         WithdrawRequest request = new WithdrawRequest(
-                1L,
+                walletId,
                 new BigDecimal("500.00")
         );
 
-        assertThrows(
-                AccessDeniedException.class,
-                () -> withdrawalService.withdrawal(
-                        request,
-                        "withdraw-auth-test"
-                )
+        User user = createUser(
+                "Ibrahim Olawale" + UUID.randomUUID(),
+                email,
+                "08012345686"
         );
 
-        verify(transactionRepository, never()).save(any());
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forWithdrawal(
+                walletId,
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(withdrawalTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new AccessDeniedException(
+                "You are not allowed to access this wallet"
+        ));
+
+        // Act & Assert
+        assertThrows(
+                AccessDeniedException.class,
+                () -> withdrawalService.withdrawal(request, idempotencyKey)
+        );
+
+        // Verify delegation to the processor
+        verify(withdrawalTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        );
     }
 
     @Test
     @DisplayName("Should reject withdrawal when funds are insufficient")
     void shouldRejectWithdrawalWhenFundsAreInsufficient() {
-//    Arrange
+        // Arrange
         Long walletId = 1L;
+        Long userId = 10L;
+
+        String email = "ibrahim@gmail.com";
+        String idempotencyKey = "Withdrawal-002";
+        String requestHash = "a".repeat(64);
 
         var request = new WithdrawRequest(
                 walletId,
@@ -173,43 +208,44 @@ public class WithdrawalServiceImpTest {
 
         User user = createUser(
                 "Ibrahim Olawale" + UUID.randomUUID(),
-                "ibrahim@gmail.com",
+                email,
                 "080"
         );
 
-        var wallet = Wallet.createFor(user);
-        wallet.credit(new BigDecimal("1000.00"));
+        ReflectionTestUtils.setField(user, "id", userId);
 
-        when(walletService.findByIdForCurrentUser(walletId))
-                .thenReturn(wallet);
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-//    Act & Assert
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forWithdrawal(
+                walletId,
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(withdrawalTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new InsufficientFundsException(
+                "Insufficient wallet balance"
+        ));
+
+        // Act & Assert
         assertThrows(
                 InsufficientFundsException.class,
-                () -> withdrawalService.withdrawal(
-                        request,
-                        "Withdrawal-002"
-                )
+                () -> withdrawalService.withdrawal(request, idempotencyKey)
         );
 
-//    Verify nothing was persisted
-        verify(transactionRepository, never())
-                .save(any(Transaction.class));
-
-        verify(ledgerEntryService, never()).createEntry(
-                any(Wallet.class),
-                any(Transaction.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(LedgerEntryType.class),
-                anyString()
-        );
-
-//    Verify wallet balance was not changed
-        assertEquals(
-                new BigDecimal("1000.00"),
-                wallet.getBalance()
+        // Verify the request reached the processor
+        verify(withdrawalTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
     }
 

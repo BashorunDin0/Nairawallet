@@ -92,8 +92,6 @@ public class TransactionServiceImpTest {
 
         when(walletService.findById(walletId))
                 .thenReturn(receiverWallet);
-        when(currentUserService.getCurrentUserEmail())
-                .thenReturn("history-receiver@gmail.com");
 
         when(transactionRepository
                 .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
@@ -121,6 +119,7 @@ public class TransactionServiceImpTest {
         assertEquals(expectedResponse, response.getContent().get(0));
 
         verify(walletService).findById(walletId);
+        verify(walletService).verifyOwnership(receiverWallet);
 
         verify(transactionRepository)
                 .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
@@ -144,17 +143,6 @@ public class TransactionServiceImpTest {
         Long walletId = 2L;
 
         Wallet wallet = mock(Wallet.class);
-        User user = createUser(
-                "History User",
-                "history-user",
-                "080"
-        );
-
-        when(wallet.getUser())
-                .thenReturn(user);
-
-        when(currentUserService.getCurrentUserEmail())
-                .thenReturn("history-user@gmail.com");
 
         Page<Transaction> emptyPage = Page.empty();
 
@@ -183,6 +171,7 @@ public class TransactionServiceImpTest {
         assertEquals(0, response.getTotalElements());
 
         verify(walletService).findById(walletId);
+        verify(walletService).verifyOwnership(wallet);
 
         verify(transactionRepository)
                 .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
@@ -231,18 +220,6 @@ public class TransactionServiceImpTest {
 
         Wallet wallet = mock(Wallet.class);
 
-        User user = createUser(
-                "pager nation",
-                "pagination-user",
-                "080"
-        );
-
-        when(wallet.getUser())
-                .thenReturn(user);
-
-        when(currentUserService.getCurrentUserEmail())
-                .thenReturn("pagination-user@gmail.com");
-
         Page<Transaction> transactionPage =
                 new PageImpl<>(List.of());
 
@@ -267,6 +244,8 @@ public class TransactionServiceImpTest {
         // Assert
         ArgumentCaptor<Pageable> pageableCaptor =
                 ArgumentCaptor.forClass(Pageable.class);
+
+        verify(walletService).verifyOwnership(wallet);
 
         verify(transactionRepository)
                 .findBySourceWalletIdOrDestinationWalletIdOrderByCreatedAtDescIdDesc(
@@ -301,8 +280,9 @@ public class TransactionServiceImpTest {
         when(walletService.findById(walletId))
                 .thenReturn(wallet);
 
-        when(currentUserService.getCurrentUserEmail())
-                .thenReturn("attacker@gmail.com");
+        doThrow(new AccessDeniedException(
+                "You are not allowed to access this wallet"
+        )).when(walletService).verifyOwnership(wallet);
 
         // Act & Assert
         assertThrows(

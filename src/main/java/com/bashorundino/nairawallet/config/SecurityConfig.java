@@ -66,7 +66,8 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(exception ->
                         exception.authenticationEntryPoint(
-                                (request, response, authException) -> {
+                                (request, response,
+                                 authException) -> {
                                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                                     response.setContentType("application/json");
                                     response.getWriter().write(

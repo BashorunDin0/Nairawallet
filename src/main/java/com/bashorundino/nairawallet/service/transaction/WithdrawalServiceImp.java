@@ -2,20 +2,22 @@ package com.bashorundino.nairawallet.service.transaction;
 
 import com.bashorundino.nairawallet.dto.request.WithdrawRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
-import com.bashorundino.nairawallet.entity.Transaction;
-import com.bashorundino.nairawallet.entity.Wallet;
-import com.bashorundino.nairawallet.enums.LedgerEntryType;
+import com.bashorundino.nairawallet.entity.IdempotencyKey;
+import com.bashorundino.nairawallet.entity.User;
+import com.bashorundino.nairawallet.enums.IdempotencyStatus;
+import com.bashorundino.nairawallet.enums.TransactionType;
+import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
+import com.bashorundino.nairawallet.exception.IdempotencyClaimConflictException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
-import com.bashorundino.nairawallet.repository.TransactionRepository;
+import com.bashorundino.nairawallet.repository.UserRepository;
+import com.bashorundino.nairawallet.service.CurrentUserService;
 import com.bashorundino.nairawallet.service.IdempotencyKeyService;
-import com.bashorundino.nairawallet.service.LedgerEntryService;
-import com.bashorundino.nairawallet.service.WalletService;
+import com.bashorundino.nairawallet.service.RequestFingerprintService;
+import com.bashorundino.nairawallet.service.WithdrawalTransactionProcessor;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
 
 
 @Service
@@ -23,53 +25,62 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class WithdrawalServiceImp implements WithdrawalService {
 
-    private final WalletService walletService;
-    private final LedgerEntryService ledgerEntryService;
+    private final WithdrawalTransactionProcessor withdrawalTransactionProcessor;
     private final IdempotencyKeyService idempotencyKeyService;
-
-    private final TransactionRepository transactionRepository;
+    private final CurrentUserService currentUserService;
+    private final UserRepository userRepository;
+    private final RequestFingerprintService requestFingerprintService;
     private final TransactionMapper transactionMapper;
-    private final TransactionReferenceGenerator referenceGenerator;
-    private final TransactionLedgerValidator transactionLedgerValidator;
-
 
     @Override
-    @Transactional
-    public TransactionResponse withdrawal(WithdrawRequest request, String idempotencyKey) {
-        idempotencyKeyService.claim(idempotencyKey);
-        Wallet wallet =
-                walletService.findByIdForCurrentUser(request.walletId());
+    public TransactionResponse withdrawal(
+            WithdrawRequest request,
+            String idempotencyKey) {
 
-        BigDecimal balanceBefore = wallet.getBalance();
-        wallet.debit(request.amount());
-        BigDecimal balanceAfter = wallet.getBalance();
+        String email = currentUserService.getCurrentUserEmail();
 
-        Transaction transaction = Transaction.createWithdrawal(
-                referenceGenerator.generate(),
-                request.amount(),
-                "Wallet Withdrawal",
-                wallet
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Authenticated user not found"));
+
+        String requestHash = requestFingerprintService.forWithdrawal(
+                request.walletId(),
+                request.amount()
         );
 
-        transactionRepository.save(transaction);
+        try {
+            return withdrawalTransactionProcessor.process(
+                    request,
+                    idempotencyKey,
+                    user.getId(),
+                    requestHash
+            );
+        } catch (IdempotencyClaimConflictException exception) {
 
-        ledgerEntryService.createEntry(
-                wallet,
-                transaction,
-                request.amount(),
-                balanceBefore,
-                balanceAfter,
-                LedgerEntryType.DEBIT,
-                "Wallet Withdrawal"
-        );
+            IdempotencyKey existing = idempotencyKeyService.findExisting(
+                    user.getId(),
+                    TransactionType.WITHDRAWAL,
+                    idempotencyKey
+            );
 
-        transactionLedgerValidator.validate(transaction);
-        transaction.markSuccessful();
-        log.info("Withdrawal successful. reference = {}",
-                transaction.getTxReference());
+            if (existing == null) {
+                throw exception;
+            }
 
-        return transactionMapper.mapToResponse(transaction,
-                wallet.getId());
+            idempotencyKeyService.validateSameRequest(existing, requestHash);
+
+            if (existing.getStatus() == IdempotencyStatus.COMPLETED
+                    && existing.getTransaction() != null) {
+
+                return transactionMapper.mapToResponse(
+                        existing.getTransaction(),
+                        request.walletId()
+                );
+            }
+
+            throw new DuplicateTransactionException(
+                    "This request is already being processed"
+            );
+        }
     }
-
 }

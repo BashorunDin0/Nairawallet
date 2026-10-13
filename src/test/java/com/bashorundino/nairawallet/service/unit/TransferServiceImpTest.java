@@ -3,25 +3,19 @@ package com.bashorundino.nairawallet.service.unit;
 
 import com.bashorundino.nairawallet.dto.request.TransferRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
-import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
-import com.bashorundino.nairawallet.entity.Wallet;
-import com.bashorundino.nairawallet.enums.LedgerEntryType;
-import com.bashorundino.nairawallet.enums.TransactionStatus;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
 import com.bashorundino.nairawallet.exception.InsufficientFundsException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import com.bashorundino.nairawallet.service.IdempotencyKeyService;
-import com.bashorundino.nairawallet.service.LedgerEntryService;
-import com.bashorundino.nairawallet.service.WalletService;
-import com.bashorundino.nairawallet.service.transaction.TransactionLedgerValidator;
+import com.bashorundino.nairawallet.repository.UserRepository;
+import com.bashorundino.nairawallet.service.*;
 import com.bashorundino.nairawallet.service.transaction.TransactionReferenceGenerator;
 import com.bashorundino.nairawallet.service.transaction.TransferServiceImp;
+import com.bashorundino.nairawallet.service.transaction.TransferTransactionProcessor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,14 +24,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.IllegalTransactionStateException;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.anyString;
 
 @ExtendWith(MockitoExtension.class)
 public class TransferServiceImpTest {
@@ -46,10 +38,19 @@ public class TransferServiceImpTest {
     private WalletService walletService;
 
     @Mock
-    private LedgerEntryService ledgerEntryService;
+    private IdempotencyKeyService idempotencyKeyService;
 
     @Mock
-    private IdempotencyKeyService idempotencyKeyService;
+    private CurrentUserService currentUserService;
+
+    @Mock
+    private RequestFingerprintService requestFingerprintService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private LedgerEntryService ledgerEntryService;
 
     @Mock
     private TransactionRepository transactionRepository;
@@ -60,138 +61,94 @@ public class TransferServiceImpTest {
     @Mock
     private TransactionReferenceGenerator referenceGenerator;
 
+
     @Mock
-    private TransactionLedgerValidator transactionLedgerValidator;
+    private TransferTransactionProcessor transferTransactionProcessor;
+
 
     @InjectMocks
     private TransferServiceImp transferService;
 
+
     @Test
     @DisplayName("Transfer Money Successfully")
     void shouldTransferSuccessfully() {
-//    Arrange
-        Long senderWalletId = 1L;
-        Long receiverWalletId = 2L;
+        // Arrange
+        Long userId = 1L;
+        String email = "ibrahim@gmail.com";
+        String requestHash = "a".repeat(64);
+        String idempotencyKey = "Transfer-001";
 
-        var request = new TransferRequest(
-                senderWalletId,
-                receiverWalletId,
+        TransferRequest request = new TransferRequest(
+                1L,
+                2L,
                 new BigDecimal("300.00"),
                 "Transfer money"
         );
 
         User sender = createUser(
-                "Ibrahim Olawale" + UUID.randomUUID(),
-                "ibrahim@gmail.com",
+                "Ibrahim Olawale",
+                "ibrahim",
                 "0801"
         );
+        ReflectionTestUtils.setField(sender, "id", userId);
 
-        var receiver = createUser(
-                "Idris Tunde" + UUID.randomUUID(),
-                "idris@gmail.com",
-                "0802"
-        );
+        TransactionResponse expectedResponse = mock(TransactionResponse.class);
 
-        var senderWallet = Wallet.createFor(sender);
-        senderWallet.credit(new BigDecimal("1000.00"));
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        var receiverWallet = Wallet.createFor(receiver);
-        receiverWallet.credit(new BigDecimal("500.00"));
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(sender));
 
-//  Manually creating the database auto-generated Ids.
-        ReflectionTestUtils.setField(senderWallet, "id", senderWalletId);
-        ReflectionTestUtils.setField(receiverWallet, "id", receiverWalletId);
+        when(requestFingerprintService.forTransfer(
+                request.senderWalletId(),
+                request.receiverWalletId(),
+                request.amount()
+        )).thenReturn(requestHash);
 
-        var expectedResponse = mock(TransactionResponse.class);
-
-        when(walletService.findByIdForUpdate(1L))
-                .thenReturn(senderWallet);
-
-        when(walletService.findByIdForUpdate(2L))
-                .thenReturn(receiverWallet);
-        when(referenceGenerator.generate())
-                .thenReturn("TXN-TEST-001");
-
-        when(transactionRepository.save(any(Transaction.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        when(transactionMapper.mapToResponse(any(Transaction.class), anyLong()))
-                .thenReturn(expectedResponse);
-
-//    Act
-        var response = transferService.transfer(
+        when(transferTransactionProcessor.process(
                 request,
-                "Transfer-001"
-        );
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenReturn(expectedResponse);
 
-//    Assert
+        // Act
+        TransactionResponse response =
+                transferService.transfer(request, idempotencyKey);
 
-        assertEquals(
-                new BigDecimal("700.00"),
-                senderWallet.getBalance()
-        );
-
-        assertEquals(
-                new BigDecimal("800.00"),
-                receiverWallet.getBalance()
-        );
-
+        // Assert
         assertEquals(expectedResponse, response);
 
-//    Verify idempotency
-        verify(idempotencyKeyService)
-                .claim("Transfer-001");
+        verify(currentUserService).getCurrentUserEmail();
+        verify(userRepository).findByEmail(email);
 
-//    Verify both wallets were retrieved
-        verify(walletService)
-                .findByIdForUpdate(1L);
-
-        verify(walletService)
-                .findByIdForUpdate(2L);
-
-        ArgumentCaptor<Transaction> transactionCaptor =
-                ArgumentCaptor.forClass(Transaction.class);
-
-        verify(transactionRepository)
-                .save(transactionCaptor.capture());
-        List<Transaction> savedTransactions =
-                transactionCaptor.getAllValues();
-        Transaction finalTransaction =
-                savedTransactions.get(savedTransactions.size() - 1);
-        assertEquals(TransactionStatus.SUCCESS, finalTransaction.getStatus());
-
-//    Verify sender ledger entry
-        verify(ledgerEntryService).createEntry(
-                eq(senderWallet),
-                eq(finalTransaction),
-                eq(new BigDecimal("300.00")),
-                eq(new BigDecimal("1000.00")),
-                eq(new BigDecimal("700.00")),
-                eq(LedgerEntryType.DEBIT),
-                eq("Wallet Transfer")
+        verify(requestFingerprintService).forTransfer(
+                request.senderWalletId(),
+                request.receiverWalletId(),
+                request.amount()
         );
 
-//    Verify receiver ledger entry
-        verify(ledgerEntryService).createEntry(
-                eq(receiverWallet),
-                eq(finalTransaction),
-                eq(new BigDecimal("300.00")),
-                eq(new BigDecimal("500.00")),
-                eq(new BigDecimal("800.00")),
-                eq(LedgerEntryType.CREDIT),
-                eq("Wallet Transfer")
+        verify(transferTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
 
-//    Verify response mapping
-        verify(transactionMapper)
-                .mapToResponse(finalTransaction, senderWalletId);
+        verifyNoInteractions(idempotencyKeyService, transactionMapper);
     }
 
     @Test
     @DisplayName("Should reject self transfer")
     void shouldRejectSelfTransfer() {
-//    Arrange
+        // Arrange
         Long walletId = 1L;
+        String idempotencyKey = "Transfer-002";
+        String email = "ibrahim@gmail.com";
+        Long userId = 10L;
+        String requestHash = "a".repeat(64);
 
         var request = new TransferRequest(
                 walletId,
@@ -202,56 +159,62 @@ public class TransferServiceImpTest {
 
         User user = createUser(
                 "Ibrahim Olawale" + UUID.randomUUID(),
-                "ibrahim@gmail.com",
+                email,
                 "0801"
         );
 
-        var wallet = Wallet.createFor(user);
-        wallet.credit(new BigDecimal("1000.00"));
+        ReflectionTestUtils.setField(user, "id", userId);
 
-        ReflectionTestUtils.setField(
-                wallet,
-                "id",
-                walletId
-        );
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-//    Act & Assert
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forTransfer(
+                walletId,
+                walletId,
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(transferTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new IllegalTransactionStateException(
+                "Sender and receiver wallets must be different"
+        ));
+
+        // Act & Assert
         assertThrows(
                 IllegalTransactionStateException.class,
-                () -> transferService.transfer(
-                        request,
-                        "Transfer-002"
-                )
+                () -> transferService.transfer(request, idempotencyKey)
         );
 
-//    Verify wallet balance did not change
-        assertEquals(
-                new BigDecimal("1000.00"),
-                wallet.getBalance()
+        // Verify the processor was called with the correct request
+        verify(transferTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
 
-//    Verify no transaction was created
-        verify(transactionRepository, never())
-                .save(any(Transaction.class));
-
-//    Verify no ledger entry was created
-        verify(ledgerEntryService, never()).createEntry(
-                any(Wallet.class),
-                any(Transaction.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(LedgerEntryType.class),
-                anyString()
-        );
+        // Verify the outer service did not attempt idempotency replay
+        verifyNoInteractions(transactionRepository, ledgerEntryService);
     }
 
     @Test
     @DisplayName("Should reject transfer from inactive sender wallet")
     void shouldRejectTransferFromInactiveSenderWallet() {
-//    Arrange
+        // Arrange
         Long senderWalletId = 1L;
         Long receiverWalletId = 2L;
+        Long userId = 10L;
+
+        String email = "ib@gmail.com";
+        String idempotencyKey = "Transfer-004";
+        String requestHash = "a".repeat(64);
 
         var request = new TransferRequest(
                 senderWalletId,
@@ -262,75 +225,49 @@ public class TransferServiceImpTest {
 
         User sender = createUser(
                 "Ibrahim Olawale" + UUID.randomUUID(),
-                "ib@gmail.com",
+                email,
                 "08012345686"
         );
 
-        User receiver = createUser(
-                "Idris Tunde" + UUID.randomUUID(),
-                "idris@gmail.com",
-                "0801"
-        );
+        ReflectionTestUtils.setField(sender, "id", userId);
 
-        var senderWallet = Wallet.createFor(sender);
-        senderWallet.credit(new BigDecimal("1000.00"));
-        senderWallet.deactivate();
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        var receiverWallet = Wallet.createFor(receiver);
-        receiverWallet.credit(new BigDecimal("500.00"));
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(sender));
 
-        ReflectionTestUtils.setField(
-                senderWallet,
-                "id",
-                senderWalletId
-        );
+        when(requestFingerprintService.forTransfer(
+                senderWalletId,
+                receiverWalletId,
+                request.amount()
+        )).thenReturn(requestHash);
 
-        ReflectionTestUtils.setField(
-                receiverWallet,
-                "id",
-                receiverWalletId
-        );
+        when(transferTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new InactiveWalletException(
+                "Wallet is inactive"
+        ));
 
-        when(walletService.findByIdForUpdate(senderWalletId))
-                .thenReturn(senderWallet);
-
-        when(walletService.findByIdForUpdate(receiverWalletId))
-                .thenReturn(receiverWallet);
-
-//    Act & Assert
+        // Act & Assert
         assertThrows(
                 InactiveWalletException.class,
-                () -> transferService.transfer(
-                        request,
-                        "Transfer-004"
-                )
+                () -> transferService.transfer(request, idempotencyKey)
         );
 
-//    Verify balances did not change
-        assertEquals(
-                new BigDecimal("1000.00"),
-                senderWallet.getBalance()
+        // Verify the processor received the request
+        verify(transferTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
 
-        assertEquals(
-                new BigDecimal("500.00"),
-                receiverWallet.getBalance()
-        );
-
-//    Verify no transaction was created
-        verify(transactionRepository, never())
-                .save(any(Transaction.class));
-
-//    Verify no ledger entry was created
-        verify(ledgerEntryService, never()).createEntry(
-                any(Wallet.class),
-                any(Transaction.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(LedgerEntryType.class),
-                anyString()
-        );
+        // The mocked processor doesn't modify wallets or create ledger entries.
+        verifyNoInteractions(transactionRepository, ledgerEntryService);
     }
 
     @Test
@@ -340,6 +277,11 @@ public class TransferServiceImpTest {
         // Arrange
         Long senderWalletId = 1L;
         Long receiverWalletId = 2L;
+        Long userId = 10L;
+
+        String email = "ib@gmail.com";
+        String idempotencyKey = "Transfer-004";
+        String requestHash = "a".repeat(64);
 
         var request = new TransferRequest(
                 senderWalletId,
@@ -348,113 +290,130 @@ public class TransferServiceImpTest {
                 "Transfer"
         );
 
-        User sender = createUser(
-                "Active Sender" + UUID.randomUUID(),
-                "active-sender-2@gmail.com",
-                "0801"
-        );
-
         User receiver = createUser(
-                "Inactive Receiver" + UUID.randomUUID(),
-                "inactive-receiver-2@gmail.com",
-                "0801"
+                "Ibrahim Olawale" + UUID.randomUUID(),
+                email,
+                "08012345686"
         );
 
-        var senderWallet = Wallet.createFor(sender);
-        senderWallet.credit(new BigDecimal("1000.00"));
+        ReflectionTestUtils.setField(receiver, "id", userId);
 
-        var receiverWallet = Wallet.createFor(receiver);
-        receiverWallet.credit(new BigDecimal("500.00"));
-        receiverWallet.deactivate();
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        ReflectionTestUtils.setField(senderWallet, "id", senderWalletId);
-        ReflectionTestUtils.setField(receiverWallet, "id", receiverWalletId);
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(receiver));
 
-        when(walletService.findByIdForUpdate(senderWalletId))
-                .thenReturn(senderWallet);
+        when(requestFingerprintService.forTransfer(
+                senderWalletId,
+                receiverWalletId,
+                request.amount()
+        )).thenReturn(requestHash);
 
-        when(walletService.findByIdForUpdate(receiverWalletId))
-                .thenReturn(receiverWallet);
+        when(transferTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new InactiveWalletException(
+                "Wallet is inactive"
+        ));
 
         // Act & Assert
         assertThrows(
                 InactiveWalletException.class,
-                () -> transferService.transfer(
-                        request,
-                        "Transfer-005"
-                )
+                () -> transferService.transfer(request, idempotencyKey)
         );
 
-        // Verify no transaction was created
-        verify(transactionRepository, never())
-                .save(any(Transaction.class));
-
-        // Verify no ledger entry was created
-        verify(ledgerEntryService, never()).createEntry(
-                any(Wallet.class),
-                any(Transaction.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(LedgerEntryType.class),
-                anyString()
+        // Verify the processor received the request
+        verify(transferTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
+
+        // The mocked processor doesn't modify wallets or create ledger entries.
+        verifyNoInteractions(transactionRepository, ledgerEntryService);
     }
 
     @Test
     @DisplayName("Should reject transfer when sender wallet does not belong to current user")
     void shouldRejectTransferFromWalletOwnedByAnotherUser() {
+        // Arrange
+        Long senderWalletId = 1L;
+        Long receiverWalletId = 2L;
+        Long userId = 10L;
 
-        Wallet senderWallet = mock(Wallet.class);
-        Wallet receiverWallet = mock(Wallet.class);
-
-        // The service uses wallet IDs to determine
-        // which locked wallet is the sender.
-        when(senderWallet.getId()).thenReturn(1L);
-
-        when(walletService.findByIdForUpdate(1L))
-                .thenReturn(senderWallet);
-
-        when(walletService.findByIdForUpdate(2L))
-                .thenReturn(receiverWallet);
-
-        doThrow(new AccessDeniedException(
-                "You are not allowed to access this wallet"
-        ))
-                .when(walletService)
-                .verifyOwnership(senderWallet);
+        String email = "ib@gmail.com";
+        String idempotencyKey = "transfer-auth-test";
+        String requestHash = "a".repeat(64);
 
         TransferRequest request = new TransferRequest(
-                1L,
-                2L,
+                senderWalletId,
+                receiverWalletId,
                 new BigDecimal("100.00"),
                 "Unauthorized transfer"
         );
 
-        assertThrows(
-                AccessDeniedException.class,
-                () -> transferService.transfer(
-                        request,
-                        "transfer-auth-test"
-                )
+        User user = createUser(
+                "Ibrahim Olawale" + UUID.randomUUID(),
+                email,
+                "08012345686"
         );
 
-        verify(walletService).findByIdForUpdate(1L);
-        verify(walletService).findByIdForUpdate(2L);
-        verify(walletService).verifyOwnership(senderWallet);
+        ReflectionTestUtils.setField(user, "id", userId);
 
-        verify(senderWallet, never()).debit(any());
-        verify(receiverWallet, never()).credit(any());
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        verify(transactionRepository, never()).save(any());
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forTransfer(
+                senderWalletId,
+                receiverWalletId,
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(transferTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new AccessDeniedException(
+                "You are not allowed to access this wallet"
+        ));
+
+        // Act & Assert
+        assertThrows(
+                AccessDeniedException.class,
+                () -> transferService.transfer(request, idempotencyKey)
+        );
+
+        // Verify delegation to the processor
+        verify(transferTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        );
+
+        // The mocked processor does not execute wallet operations.
+        verifyNoInteractions(transactionRepository, ledgerEntryService);
     }
 
     @Test
     @DisplayName("Should reject transfer when sender has insufficient funds")
     void shouldRejectTransferWhenSenderHasInsufficientFunds() {
-//    Arrange
+        // Arrange
         Long senderWalletId = 1L;
         Long receiverWalletId = 2L;
+        Long userId = 10L;
+
+        String email = "sender-insufficient@gmail.com";
+        String idempotencyKey = "Transfer-003";
+        String requestHash = "a".repeat(64);
 
         var request = new TransferRequest(
                 senderWalletId,
@@ -465,75 +424,49 @@ public class TransferServiceImpTest {
 
         User senderUser = createUser(
                 "Ibrahim Sender" + UUID.randomUUID(),
-                "sender-insufficient@gmail.com" + UUID.randomUUID(),
+                email,
                 "0801"
         );
 
-        User receiverUser = createUser(
-                "Receiver User" + UUID.randomUUID(),
-                "receiver-insufficient@gmail.com",
-                "0801"
-        );
+        ReflectionTestUtils.setField(senderUser, "id", userId);
 
-        var senderWallet = Wallet.createFor(senderUser);
-        senderWallet.credit(new BigDecimal("1000.00"));
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        var receiverWallet = Wallet.createFor(receiverUser);
-        receiverWallet.credit(new BigDecimal("500.00"));
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(senderUser));
 
-        ReflectionTestUtils.setField(
-                senderWallet,
-                "id",
-                senderWalletId
-        );
+        when(requestFingerprintService.forTransfer(
+                senderWalletId,
+                receiverWalletId,
+                request.amount()
+        )).thenReturn(requestHash);
 
-        ReflectionTestUtils.setField(
-                receiverWallet,
-                "id",
-                receiverWalletId
-        );
+        when(transferTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new InsufficientFundsException(
+                "Insufficient wallet balance"
+        ));
 
-        when(walletService.findByIdForUpdate(senderWalletId))
-                .thenReturn(senderWallet);
-
-        when(walletService.findByIdForUpdate(receiverWalletId))
-                .thenReturn(receiverWallet);
-
-//    Act & Assert
+        // Act & Assert
         assertThrows(
                 InsufficientFundsException.class,
-                () -> transferService.transfer(
-                        request,
-                        "Transfer-003"
-                )
+                () -> transferService.transfer(request, idempotencyKey)
         );
 
-//    Verify sender balance did not change
-        assertEquals(
-                new BigDecimal("1000.00"),
-                senderWallet.getBalance()
+        // Verify the request reached the processor
+        verify(transferTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
 
-//    Verify receiver balance did not change
-        assertEquals(
-                new BigDecimal("500.00"),
-                receiverWallet.getBalance()
-        );
-
-//    Verify no transaction was created
-        verify(transactionRepository, never())
-                .save(any(Transaction.class));
-
-//    Verify no ledger entry was created
-        verify(ledgerEntryService, never()).createEntry(
-                any(Wallet.class),
-                any(Transaction.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(LedgerEntryType.class),
-                anyString()
-        );
+        // The mocked processor cannot change balances or create entries.
+        verifyNoInteractions(transactionRepository, ledgerEntryService);
     }
 
     private User createUser(

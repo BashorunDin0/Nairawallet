@@ -1,5 +1,6 @@
 package com.bashorundino.nairawallet.service;
 
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,22 +49,13 @@ public class JwtService {
 
     public boolean isTokenValid(String token, String email) {
 
-        String extractedEmail = extractEmail(token);
+        try {
 
-        return extractedEmail.equals(email) && !isTokenExpired(token);
+            String extractedEmail = extractEmail(token);
+
+            return extractedEmail.equals(email);
+        } catch (JwtException | IllegalArgumentException ex){
+            return false;
+        }
     }
-
-    private boolean isTokenExpired(String token) {
-
-        Date expirationDate = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getExpiration();
-
-        return expirationDate.before(new Date());
-    }
-
-
 }

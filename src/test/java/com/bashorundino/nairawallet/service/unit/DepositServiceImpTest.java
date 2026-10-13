@@ -3,21 +3,24 @@ package com.bashorundino.nairawallet.service.unit;
 
 import com.bashorundino.nairawallet.dto.request.DepositRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
+import com.bashorundino.nairawallet.entity.IdempotencyKey;
 import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
 import com.bashorundino.nairawallet.entity.Wallet;
 import com.bashorundino.nairawallet.enums.LedgerEntryType;
 import com.bashorundino.nairawallet.enums.TransactionStatus;
+import com.bashorundino.nairawallet.enums.TransactionType;
 import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
+import com.bashorundino.nairawallet.exception.IdempotencyClaimConflictException;
 import com.bashorundino.nairawallet.exception.InactiveWalletException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
-import com.bashorundino.nairawallet.service.IdempotencyKeyService;
-import com.bashorundino.nairawallet.service.LedgerEntryService;
-import com.bashorundino.nairawallet.service.WalletService;
+import com.bashorundino.nairawallet.repository.UserRepository;
+import com.bashorundino.nairawallet.service.*;
 import com.bashorundino.nairawallet.service.transaction.DepositServiceImp;
 import com.bashorundino.nairawallet.service.transaction.TransactionLedgerValidator;
 import com.bashorundino.nairawallet.service.transaction.TransactionReferenceGenerator;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,26 +47,24 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 public class DepositServiceImpTest {
 
-    @Mock
-    private WalletService walletService;
-
-    @Mock
-    private LedgerEntryService ledgerEntryService;
 
     @Mock
     private IdempotencyKeyService idempotencyKeyService;
 
     @Mock
-    private TransactionRepository transactionRepository;
+    private DepositTransactionProcessor depositTransactionProcessor;
 
     @Mock
     private TransactionMapper transactionMapper;
 
     @Mock
-    private TransactionReferenceGenerator referenceGenerator;
+    private RequestFingerprintService requestFingerprintService;
 
     @Mock
-    private TransactionLedgerValidator transactionLedgerValidator;
+    private CurrentUserService currentUserService;
+
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private DepositServiceImp depositService;
@@ -70,256 +72,330 @@ public class DepositServiceImpTest {
     @Test
     @DisplayName("Deposit Money Successfully")
     void shouldDepositSuccessfully() {
-//        Arrange
-        Long walletId = 1L;
-
-        var request = new DepositRequest(
-                walletId, new BigDecimal("500.00")
-        );
+        // Arrange
+        Long userId = 1L;
+        Long walletId = 10L;
+        String email = "ibrahim@gmail.com";
+        String idempotencyKey = "Deposit-001";
+        String requestHash = "a".repeat(64);
 
         User user = createUser(
-                "Ibrahim Olawale" + UUID.randomUUID(),
-                "ib@gmail.com",
+                "Ibrahim Olawale",
+                "ibrahim",
                 "070"
         );
+        ReflectionTestUtils.setField(user, "id", userId);
 
-        var wallet = Wallet.createFor(user);
-        wallet.credit(new BigDecimal("1000.00"));
-
-        ReflectionTestUtils.setField(wallet, "id", walletId);
-
-        var savedTransaction = Transaction.createDeposit(
-                "TXN-ABC-001",
-                new BigDecimal("500.00"),
-                "Wallet Deposit",
-                wallet
+        DepositRequest request = new DepositRequest(
+                walletId,
+                new BigDecimal("500.00")
         );
 
-        var expectedResponse = mock(TransactionResponse.class);
+        TransactionResponse expectedResponse =
+                mock(TransactionResponse.class);
 
-        when(walletService.findByIdForCurrentUser(walletId)).
-                thenReturn(wallet);
-        when(referenceGenerator.generate())
-                .thenReturn("TXN-TEST-001");
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        when(transactionRepository.save(any(Transaction.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
 
-        when(transactionMapper.mapToResponse(any(Transaction.class), anyLong())).
-                thenReturn(expectedResponse);
+        when(requestFingerprintService.forDeposit(
+                walletId,
+                new BigDecimal("500.00")
+        )).thenReturn(requestHash);
 
+        when(depositTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenReturn(expectedResponse);
 
-//        Act
-        var response = depositService.deposit(request, "Deposit-001");
+        // Act
+        TransactionResponse response =
+                depositService.deposit(request, idempotencyKey);
 
-//        Assert
-        assertEquals(new BigDecimal("1500.00"), wallet.getBalance());
-
+        // Assert
         assertEquals(expectedResponse, response);
 
-        verify(idempotencyKeyService).claim("Deposit-001");
+        verify(currentUserService).getCurrentUserEmail();
+        verify(userRepository).findByEmail(email);
 
-        verify(walletService).findByIdForCurrentUser(walletId);
-
-        ArgumentCaptor<Transaction> transactionCaptor =
-                ArgumentCaptor.forClass(Transaction.class);
-
-        verify(transactionRepository)
-                .save(transactionCaptor.capture());
-
-        List<Transaction> savedTransactions = transactionCaptor.getAllValues();
-        Transaction finalTransaction = savedTransactions
-                .get(savedTransactions.size() - 1);
-
-        assertEquals(TransactionStatus.SUCCESS,
-                finalTransaction.getStatus());
-
-        verify(ledgerEntryService).createEntry(
-                eq(wallet),
-                eq(finalTransaction),
-                eq(new BigDecimal("500.00")),
-                eq(new BigDecimal("1000.00")),
-                eq(new BigDecimal("1500.00")),
-                eq(LedgerEntryType.CREDIT),
-                eq("Wallet Deposit")
+        verify(requestFingerprintService).forDeposit(
+                walletId,
+                new BigDecimal("500.00")
         );
 
-        verify(transactionMapper).mapToResponse(
-                finalTransaction, walletId);
+        verify(depositTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        );
 
+        verifyNoInteractions(idempotencyKeyService, transactionMapper);
     }
 
     @Test
-    @DisplayName("Should reject deposit when wallet does not belong to current user")
-    void shouldRejectDepositForWalletOwnedByAnotherUser() {
-
-        when(walletService.findByIdForCurrentUser(1L))
-                .thenThrow(new AccessDeniedException(
-                        "You are not allowed to access this wallet"
-                ));
+    @DisplayName("Should reject deposit when authenticated user does not exist")
+    void shouldRejectDepositWhenAuthenticatedUserDoesNotExist() {
+        // Arrange
+        String email = "missing@gmail.com";
 
         DepositRequest request = new DepositRequest(
                 1L,
                 new BigDecimal("500.00")
         );
 
-        assertThrows(
-                AccessDeniedException.class,
-                () -> depositService.deposit(
-                        request,
-                        "deposit-auth-test"
-                )
-        );
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
 
-        verify(transactionRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Should reject deposit into inactive wallet")
-    void shouldRejectDepositIntoInactiveWallet() {
-//      Arrange
-
-        Long walletId = 1L;
-
-        var request = new DepositRequest(
-                walletId, new BigDecimal("200.00"));
-
-        User user = createUser(
-                "Ibrahim Olawale" + UUID.randomUUID(),
-                "Ib@gmail.com",
-                "080"
-        );
-
-        Wallet wallet = Wallet.createFor(user);
-        wallet.credit(new BigDecimal("1000.00"));
-
-//        Make wallet inactive
-        wallet.deactivate();
-
-        when(walletService.findByIdForCurrentUser(walletId)).
-                thenReturn(wallet);
-
-//        Act & Assert
-        assertThrows(InactiveWalletException.class,
-                () -> depositService.deposit(request, "Deposit-002"));
-
-//        Verify nothing was persisted
-        verify(transactionRepository, never()).save(any(Transaction.class));
-        verify(ledgerEntryService, never()).createEntry(
-                any(Wallet.class),
-                any(Transaction.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(BigDecimal.class),
-                any(LedgerEntryType.class),
-                anyString()
-        );
-    }
-
-    @Test
-    @DisplayName("Should reject duplicate idempotency key")
-    void shouldRejectDuplicateIdempotencyKey() {
-
-        // Arrange
-        Long walletId = 1L;
-        String idempotencyKey = "IDEMP-001";
-
-        User user = User.create(
-                "Idempotency User" + UUID.randomUUID(),
-                "idempotency",
-                "12345678",
-                "080"
-        );
-
-        Wallet wallet = Wallet.createFor(user);
-        ReflectionTestUtils.setField(wallet, "id", walletId);
-
-        doThrow(new DuplicateTransactionException("Duplicate idempotency key"))
-                .when(idempotencyKeyService)
-                .claim(idempotencyKey);
-
-        DepositRequest request = new DepositRequest(
-                walletId,
-                new BigDecimal("500.00")
-        );
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(
-                DuplicateTransactionException.class,
-                () -> depositService.deposit(
-                        request,
-                        idempotencyKey
-                )
+                EntityNotFoundException.class,
+                () -> depositService.deposit(request, "deposit-auth-test")
         );
 
-        // Verify the wallet was never modified
-        assertEquals(
-                BigDecimal.ZERO,
-                wallet.getBalance()
+        verify(userRepository).findByEmail(email);
+        verifyNoInteractions(
+                requestFingerprintService,
+                depositTransactionProcessor
         );
-
-        verify(idempotencyKeyService)
-                .claim(idempotencyKey);
-
-        verifyNoInteractions(transactionRepository);
-        verifyNoInteractions(ledgerEntryService);
-        verifyNoInteractions(transactionMapper);
-
-        verify(walletService, never()).findById(walletId);
     }
 
-    @Test
-    @DisplayName("Should save idempotency key after successful deposit")
-    void shouldSaveIdempotencyKeyAfterSuccessfulDeposit() {
 
+
+    @Test
+    @DisplayName("Should propagate inactive wallet failure from processor")
+    void shouldPropagateInactiveWalletFailure() {
         // Arrange
-        Long walletId = 1L;
-        String idempotencyKey = "IDEMP-SUCCESS-001";
+        Long userId = 1L;
+        String email = "ibrahim@gmail.com";
+        String idempotencyKey = "Deposit-002";
+        String requestHash = "b".repeat(64);
 
         User user = createUser(
-                "Idempotency Success User" + UUID.randomUUID(),
-                "idempotency-success-",
+                "Ibrahim Olawale",
+                "ibrahim",
                 "080"
         );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        DepositRequest request = new DepositRequest(
+                1L,
+                new BigDecimal("200.00")
+        );
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forDeposit(
+                request.walletId(),
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(depositTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new InactiveWalletException("Wallet is inactive"));
+
+        // Act & Assert
+        assertThrows(
+                InactiveWalletException.class,
+                () -> depositService.deposit(request, idempotencyKey)
+        );
+
+        verify(depositTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        );
+
+        verifyNoInteractions(idempotencyKeyService, transactionMapper);
+    }
+
+
+
+
+    @Test
+    @DisplayName("Should propagate idempotency conflict when no existing record is found")
+    void shouldPropagateIdempotencyConflictWhenNoExistingRecordIsFound() {
+        // Arrange
+        Long userId = 1L;
+        String email = "idempotency@gmail.com";
+        String idempotencyKey = "IDEMP-001";
+        String requestHash = "c".repeat(64);
+
+        User user = createUser(
+                "Idempotency User",
+                "idempotency",
+                "080"
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
+
+        DepositRequest request = new DepositRequest(
+                10L,
+                new BigDecimal("500.00")
+        );
+
+        IdempotencyClaimConflictException conflict =
+                new IdempotencyClaimConflictException(
+                        "Idempotency key has already been claimed",
+                        new RuntimeException("Simulated claim conflict")
+                );
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forDeposit(
+                request.walletId(),
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(depositTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(conflict);
+
+        when(idempotencyKeyService.findExisting(
+                userId,
+                TransactionType.DEPOSIT,
+                idempotencyKey
+        )).thenReturn(null);
+
+        // Act & Assert
+        IdempotencyClaimConflictException thrown = assertThrows(
+                IdempotencyClaimConflictException.class,
+                () -> depositService.deposit(request, idempotencyKey)
+        );
+
+        assertEquals(conflict, thrown);
+
+        verify(idempotencyKeyService).findExisting(
+                userId,
+                TransactionType.DEPOSIT,
+                idempotencyKey
+        );
+
+        verify(idempotencyKeyService, never())
+                .validateSameRequest(any(), anyString());
+
+        verifyNoInteractions(transactionMapper);
+    }
+
+
+    @Test
+    @DisplayName("Should return original response for completed duplicate deposit")
+    void shouldReturnOriginalResponseForCompletedDuplicateDeposit() {
+        // Arrange
+        Long userId = 1L;
+        Long walletId = 10L;
+        String email = "idempotency-success@gmail.com";
+        String idempotencyKey = "IDEMP-SUCCESS-001";
+        String requestHash = "d".repeat(64);
+
+        User user = createUser(
+                "Idempotency Success User",
+                "idempotency-success",
+                "080"
+        );
+        ReflectionTestUtils.setField(user, "id", userId);
 
         Wallet wallet = Wallet.createFor(user);
         ReflectionTestUtils.setField(wallet, "id", walletId);
-
-        when(walletService.findByIdForCurrentUser(walletId))
-                .thenReturn(wallet);
 
         DepositRequest request = new DepositRequest(
                 walletId,
                 new BigDecimal("500.00")
         );
 
-        Transaction transaction = Transaction.createDeposit(
+        Transaction originalTransaction = Transaction.createDeposit(
                 "TXN-IDEMP-001",
                 new BigDecimal("500.00"),
                 "Wallet Deposit",
                 wallet
         );
 
-        when(transactionRepository.save(any(Transaction.class)))
-                .thenReturn(transaction);
-        when(referenceGenerator.generate())
-                .thenReturn("TXN-TEST-001");
+        IdempotencyKey existingKey = IdempotencyKey.create(
+                idempotencyKey,
+                user,
+                TransactionType.DEPOSIT,
+                requestHash
+        );
+        existingKey.markCompleted(originalTransaction);
+
+        TransactionResponse expectedResponse = mock(TransactionResponse.class);
+
+        when(currentUserService.getCurrentUserEmail())
+                .thenReturn(email);
+
+        when(userRepository.findByEmail(email))
+                .thenReturn(Optional.of(user));
+
+        when(requestFingerprintService.forDeposit(
+                walletId,
+                request.amount()
+        )).thenReturn(requestHash);
+
+        when(depositTransactionProcessor.process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
+        )).thenThrow(new IdempotencyClaimConflictException(
+                "Idempotency key has already been claimed",
+                new RuntimeException("Simulated concurrent request")
+        ));
+
+        when(idempotencyKeyService.findExisting(
+                userId,
+                TransactionType.DEPOSIT,
+                idempotencyKey
+        )).thenReturn(existingKey);
+
+        when(transactionMapper.mapToResponse(originalTransaction, walletId))
+                .thenReturn(expectedResponse);
 
         // Act
-        depositService.deposit(request, idempotencyKey);
+        TransactionResponse response =
+                depositService.deposit(request, idempotencyKey);
 
         // Assert
-        verify(idempotencyKeyService)
-                .claim(idempotencyKey);
+        assertEquals(expectedResponse, response);
 
-        verify(transactionRepository, atLeastOnce())
-                .save(any(Transaction.class));
+        verify(idempotencyKeyService).validateSameRequest(
+                existingKey,
+                requestHash
+        );
 
-        assertEquals(
-                new BigDecimal("500.00"),
-                wallet.getBalance()
+        verify(transactionMapper).mapToResponse(
+                originalTransaction,
+                walletId
+        );
+
+        verify(depositTransactionProcessor).process(
+                request,
+                idempotencyKey,
+                userId,
+                requestHash
         );
     }
+
 
     private User createUser(
             String fullName,

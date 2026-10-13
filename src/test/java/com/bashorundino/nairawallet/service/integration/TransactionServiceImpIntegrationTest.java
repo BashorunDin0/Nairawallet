@@ -627,8 +627,11 @@ public class TransactionServiceImpIntegrationTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch startLatch = new CountDownLatch(1);
 
-        Callable<String> task = () -> {
-            SecurityContextHolder.getContext().setAuthentication(
+        Callable<TransactionResponse> task = () -> {
+            SecurityContext context =
+                    SecurityContextHolder.createEmptyContext();
+
+            context.setAuthentication(
                     new UsernamePasswordAuthenticationToken(
                             user.getEmail(),
                             null,
@@ -636,32 +639,32 @@ public class TransactionServiceImpIntegrationTest {
                     )
             );
 
+            SecurityContextHolder.setContext(context);
+
             try {
                 startLatch.await();
-
-                transactionService.deposit(request, idempotencyKey);
-                return "Success";
-            } catch (DuplicateTransactionException ex) {
-                return "Duplicate";
+                return transactionService.deposit(request, idempotencyKey);
+            } finally {
+                SecurityContextHolder.clearContext();
             }
         };
 
         try {
             // Act
-            Future<String> firstResult = executor.submit(task);
-            Future<String> secondResult = executor.submit(task);
+            Future<TransactionResponse> firstResult = executor.submit(task);
+            Future<TransactionResponse> secondResult = executor.submit(task);
 
-            // Start both requests at approximately the same time
             startLatch.countDown();
 
-            String result1 = firstResult.get(10, TimeUnit.SECONDS);
-            String result2 = secondResult.get(10, TimeUnit.SECONDS);
+            TransactionResponse response1 =
+                    firstResult.get(10, TimeUnit.SECONDS);
+
+            TransactionResponse response2 =
+                    secondResult.get(10, TimeUnit.SECONDS);
+
 
             // Assert: exactly one request succeeds
-            assertTrue(
-                    (result1.equals("Success") && result2.equals("Duplicate"))
-                            || (result1.equals("Duplicate") && result2.equals("Success"))
-            );
+            assertEquals(response1.reference(), response2.reference());
 
             // Assert: financial operation executed only once
             Wallet updatedWallet = walletRepository.findById(walletId)

@@ -7,19 +7,15 @@ package com.bashorundino.nairawallet.service;
  */
 
 import com.bashorundino.nairawallet.entity.IdempotencyKey;
+import com.bashorundino.nairawallet.entity.Transaction;
+import com.bashorundino.nairawallet.entity.User;
+import com.bashorundino.nairawallet.enums.TransactionType;
 import com.bashorundino.nairawallet.exception.DuplicateTransactionException;
 import com.bashorundino.nairawallet.repository.IdempotencyKeyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-import java.time.Instant;
-
-import static com.bashorundino.nairawallet.entity.IdempotencyKey.*;
 
 @Service
 @RequiredArgsConstructor
@@ -29,33 +25,58 @@ public class IdempotencyKeyServiceImp implements IdempotencyKeyService {
     private final IdempotencyKeyRepository repository;
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void claim(String key) {
-        if (key == null || key.isBlank()) {
+    @Transactional(readOnly = true)
+    public IdempotencyKey findExisting(
+            Long userId,
+            TransactionType operationType,
+            String key){
+
+        if (key == null || key.isBlank()){
             throw new IllegalArgumentException(
                     "Idempotency-key header is required"
             );
         }
 
-        String normalizedKey = key.trim();
+        return repository.findExistingWithTransaction(
+                userId,
+                operationType,
+                key.trim()
+        )
+                .orElse(null);
 
-        IdempotencyKey idempotencyKey =
-                IdempotencyKey.create(normalizedKey);
+    }
 
-        try {
-
-            repository.saveAndFlush(idempotencyKey);
-
-        } catch (DataIntegrityViolationException exception) {
-
-            log.warn(
-                    "Duplicate idempotency detected: {}",
-                    normalizedKey
-            );
+    @Override
+    public void validateSameRequest(IdempotencyKey existing,
+                                    String requestHash) {
+        if (!existing.hasSameHash(requestHash)){
             throw new DuplicateTransactionException(
-                    "Duplicate request detected");
+                    "Idempotency key was already used with different request details"
+            );
         }
 
     }
 
+    @Override
+   public IdempotencyKey create(
+            String key,
+            User user,
+            TransactionType operationType,
+            String requestHash
+    ){
+        IdempotencyKey idempotencyKey = IdempotencyKey.create(
+                key,
+                user,
+                operationType,
+                requestHash
+        );
+        return repository.saveAndFlush(idempotencyKey);
+    }
+
+    @Override
+    public void markCompleted(
+            IdempotencyKey idempotencyKey,
+            Transaction transaction) {
+        idempotencyKey.markCompleted(transaction);
+    }
 }

@@ -299,8 +299,6 @@ public class GlobalExceptionHandler {
 
 
 
-
-
     private String extractSqlState(DataIntegrityViolationException ex) {
 
         Throwable cause = ex;

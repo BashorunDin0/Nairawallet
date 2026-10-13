@@ -70,13 +70,8 @@ public class TransactionServiceImp implements TransactionService {
 
         Wallet wallet = walletService.findById(walletId);
 
-        String currentUserEmail = currentUserService.getCurrentUserEmail();
-
-        if (!wallet.getUser().getEmail().equals(currentUserEmail)) {
-            throw new AccessDeniedException(
-                    "You are not allowed to access this wallet"
-            );
-        }
+//        reuse the ownership check
+        walletService.verifyOwnership(wallet);
 
         Pageable pageable = PageRequest.of(page, size);
 
