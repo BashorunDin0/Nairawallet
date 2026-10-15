@@ -2,16 +2,14 @@ package com.bashorundino.nairawallet.service.unit;
 
 import com.bashorundino.nairawallet.dto.request.WithdrawRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
-import com.bashorundino.nairawallet.entity.Transaction;
 import com.bashorundino.nairawallet.entity.User;
-import com.bashorundino.nairawallet.entity.Wallet;
-import com.bashorundino.nairawallet.enums.LedgerEntryType;
 import com.bashorundino.nairawallet.exception.InsufficientFundsException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.service.*;
 import com.bashorundino.nairawallet.service.transaction.WithdrawalServiceImp;
+import com.bashorundino.nairawallet.service.transaction.WithdrawalTransactionProcessor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

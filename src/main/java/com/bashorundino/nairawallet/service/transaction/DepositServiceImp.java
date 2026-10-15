@@ -11,7 +11,6 @@ import com.bashorundino.nairawallet.exception.IdempotencyClaimConflictException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.service.CurrentUserService;
-import com.bashorundino.nairawallet.service.DepositTransactionProcessor;
 import com.bashorundino.nairawallet.service.IdempotencyKeyService;
 import com.bashorundino.nairawallet.service.RequestFingerprintService;
 import jakarta.persistence.EntityNotFoundException;

@@ -13,7 +13,6 @@ import com.bashorundino.nairawallet.repository.UserRepository;
 import com.bashorundino.nairawallet.service.CurrentUserService;
 import com.bashorundino.nairawallet.service.IdempotencyKeyService;
 import com.bashorundino.nairawallet.service.RequestFingerprintService;
-import com.bashorundino.nairawallet.service.WithdrawalTransactionProcessor;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package com.bashorundino.nairawallet.service;
+package com.bashorundino.nairawallet.service.transaction;
 
 import com.bashorundino.nairawallet.dto.request.WithdrawRequest;
 import com.bashorundino.nairawallet.dto.response.TransactionResponse;
@@ -12,8 +12,9 @@ import com.bashorundino.nairawallet.exception.IdempotencyClaimConflictException;
 import com.bashorundino.nairawallet.mapper.TransactionMapper;
 import com.bashorundino.nairawallet.repository.TransactionRepository;
 import com.bashorundino.nairawallet.repository.UserRepository;
-import com.bashorundino.nairawallet.service.transaction.TransactionLedgerValidator;
-import com.bashorundino.nairawallet.service.transaction.TransactionReferenceGenerator;
+import com.bashorundino.nairawallet.service.IdempotencyKeyService;
+import com.bashorundino.nairawallet.service.LedgerEntryService;
+import com.bashorundino.nairawallet.service.WalletService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
